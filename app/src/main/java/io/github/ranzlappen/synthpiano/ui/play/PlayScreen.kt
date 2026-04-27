@@ -133,18 +133,6 @@ fun PlayScreen(
             )
         }
 
-        // Synth parameter bar
-        Box(modifier = Modifier.fillMaxWidth()) {
-            SynthControlsBar(
-                waveform = waveform,
-                onWaveform = synth::setWaveform,
-                adsr = adsr,
-                onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec) },
-                masterAmp = masterAmp,
-                onMasterAmp = synth::setMasterAmp,
-            )
-        }
-
         // Chord pads (above keyboard)
         Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
             ChordPadsRow(
