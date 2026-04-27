@@ -99,16 +99,16 @@ fun PlayScreen(
     LaunchedEffect(masterAmp) { prefs.setMasterAmp(masterAmp) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar: octave, record, share
+        // Top bar: octave, record, share, synth params, overflow
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                "Octave $octave",
+                "Oct $octave",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
@@ -176,7 +176,7 @@ fun PlayScreen(
         }
 
         // Chord pads (above keyboard)
-        Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(48.dp)) {
             ChordPadsRow(
                 pads = pads,
                 onPadDown = { pad -> chordNotes(pad).forEach { n -> synth.noteOn(n + octave * 12) } },
