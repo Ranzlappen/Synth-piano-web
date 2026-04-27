@@ -26,10 +26,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.audio.SynthController
+import io.github.ranzlappen.synthpiano.crash.CrashReporter
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import kotlinx.coroutines.launch
@@ -43,7 +48,9 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
     val devices by midi.connectedDeviceNames.collectAsState()
+    var hasCrash by remember { mutableStateOf(CrashReporter.hasReport(ctx)) }
 
     Scaffold(
         topBar = {
@@ -107,6 +114,27 @@ fun SettingsScreen(
                 scope.launch { prefs.setKeymapJson("") }
             }) {
                 Text("Reset keymap to defaults")
+            }
+        }
+
+        // Crash report (only when one exists from a prior launch)
+        if (hasCrash) {
+            SettingsCard(title = "Crash report available") {
+                Text(
+                    "The app crashed on a previous launch. Tap Share to send the trace.",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        CrashReporter.shareIntent(ctx)?.let { intent ->
+                            ctx.startActivity(android.content.Intent.createChooser(intent, "Share crash report"))
+                        }
+                    }) { Text("Share") }
+                    TextButton(onClick = {
+                        CrashReporter.clear(ctx)
+                        hasCrash = false
+                    }) { Text("Clear") }
+                }
             }
         }
 
