@@ -1,0 +1,180 @@
+# Android CI: lint, unit tests, debug APK, release AAB, optional signing.
+#
+# Triggers:
+#   - push to main / PR to main         -> lint + test + debug APK
+#   - push to release/** or any tag v*  -> additionally builds release AAB
+#                                          (release-signed if KEYSTORE_BASE64
+#                                          and friends are present, otherwise
+#                                          unsigned)
+#
+# Artifacts uploaded on every run:
+#   - synth-piano-debug.apk
+#   - synth-piano-release.aab (best-effort: signed if secrets exist)
+
+name: CI
+
+on:
+  push:
+    branches: ["main", "claude/**", "release/**"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            tools
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+            cmake;3.22.1
+            ndk;27.0.12077973
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Materialize keystore (if secrets present)
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] \
+             && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+            cat > keystore.properties <<EOF
+          storeFile=$(pwd)/release.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+            echo "signing=true" >> "$GITHUB_OUTPUT"
+            echo "Release signing enabled."
+          else
+            echo "signing=false" >> "$GITHUB_OUTPUT"
+            echo "Release signing secrets missing; release AAB will be unsigned."
+          fi
+
+      - name: Lint (debug)
+        run: ./gradlew lintDebug --stacktrace --no-daemon
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace --no-daemon
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Bundle release AAB
+        run: ./gradlew bundleRelease --stacktrace --no-daemon
+
+      - name: Assemble release APK (only when signing is configured)
+        if: steps.keystore.outputs.signing == 'true'
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: synth-piano-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: synth-piano-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload release APK
+        if: steps.keystore.outputs.signing == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: synth-piano-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: app/build/reports/lint-results-*.html
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Cleanup signing materials
+        if: always()
+        run: |
+          rm -f release.keystore keystore.properties || true
+
+  release:
+    name: Attach to GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: synth-piano-release-aab
+          path: dist/
+
+      - name: Download release APK (if present)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: synth-piano-release-apk
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          draft: true
+          generate_release_notes: true
