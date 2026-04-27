@@ -81,7 +81,7 @@ adb shell am start -n io.github.ranzlappen.synthpiano/.MainActivity
 
 **Concurrency**: CI cancels superseded runs per PR.
 
-**Runtime versions**: JDK 17, Android SDK 35, NDK r27, Gradle 8.7.
+**Runtime versions**: JDK 17, Android SDK 35, NDK r27, Gradle 8.10.2.
 
 **Required secrets** (for release-signed AAB on tags):
 
@@ -104,7 +104,7 @@ To rotate: generate a new keystore, base64-encode it (`base64 -w0 release.keysto
 | DSP | C++17 | Voices, oscillators, envelopes | Audio thread cannot afford the JVM |
 | MIDI | `android.media.midi` | USB MIDI in | First-party, no extra deps |
 | Persistence | `androidx.datastore` | Settings, key map, last score | Modern replacement for SharedPreferences |
-| Build | Gradle 8.7 + AGP 8.5 + CMake | Build system | Standard Android toolchain |
+| Build | Gradle 8.10.2 + AGP 8.5 + CMake | Build system | Standard Android toolchain |
 | CI | GitHub Actions | Automated builds | Matches Ranzlappen/repo-standards |
 
 ## Project Structure

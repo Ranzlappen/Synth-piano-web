@@ -49,7 +49,7 @@ Single-module Android app. Audio runs entirely in C++ on the audio thread; Kotli
 
 **Concurrency**: `concurrency.group = ci-${{ github.ref }}`, `cancel-in-progress: true`.
 
-**Runtime versions**: JDK 17 (Temurin), Android SDK 35, NDK r27, Gradle 8.7, AGP 8.5, Kotlin 2.0.
+**Runtime versions**: JDK 17 (Temurin), Android SDK 35, NDK r27, Gradle 8.10.2, AGP 8.5, Kotlin 2.0.
 
 **Required secrets** (release-signed AAB on tags):
 
@@ -72,7 +72,7 @@ If any secret is missing, the workflow falls back to a debug-signed APK and an u
 | DSP | C++17 | Voices, oscillators, envelopes | Audio thread cannot afford JVM |
 | MIDI | `android.media.midi` | USB MIDI in | First-party, no extra deps |
 | Persistence | `androidx.datastore.preferences` | Settings, key map | Modern preferences API |
-| Build | Gradle 8.7, AGP 8.5, CMake 3.22 | Build system | Standard Android toolchain |
+| Build | Gradle 8.10.2, AGP 8.5, CMake 3.22 | Build system | Standard Android toolchain |
 | CI | GitHub Actions | Automated builds | Matches Ranzlappen/repo-standards |
 
 ## Project Structure
