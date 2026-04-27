@@ -1,12 +1,12 @@
 # Android CI: lint, unit tests, debug APK, release AAB, signing, auto-release.
 #
 # Triggers and behavior:
-#   - PR to main                         -> lint + tests + debug APK only (no release)
-#   - push to claude/** or release/**    -> lint + tests + debug APK + release AAB (no release)
-#   - push to main                       -> above + auto-bump patch version, tag, GitHub Release
+#   - PR to main                         -> lint + tests + debug APK + release AAB (no release)
+#   - push to main (PR merge)            -> above + auto-bump patch version, tag, GitHub Release
 #   - push tag v*                        -> above + use the tag's version verbatim, GitHub Release
 #   - workflow_dispatch                  -> build only (no release)
 #
+# Docs-only changes (markdown, LICENSE, .gitignore) are skipped via paths-ignore.
 # To skip the auto-release on a main push, include "[skip release]" anywhere
 # in the commit message.
 
@@ -14,10 +14,18 @@ name: CI
 
 on:
   push:
-    branches: ["main", "claude/**", "release/**"]
+    branches: ["main"]
     tags: ["v*"]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+      - ".gitignore"
   pull_request:
     branches: ["main"]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+      - ".gitignore"
   workflow_dispatch:
 
 concurrency:
