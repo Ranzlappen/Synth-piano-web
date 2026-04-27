@@ -47,7 +47,7 @@ import io.github.ranzlappen.synthpiano.ui.components.AppGradientBackground
 import io.github.ranzlappen.synthpiano.ui.components.HeaderStrip
 import io.github.ranzlappen.synthpiano.ui.play.PerformTab
 import io.github.ranzlappen.synthpiano.ui.score.ComposerTab
-import io.github.ranzlappen.synthpiano.ui.settings.SettingsScreen
+import io.github.ranzlappen.synthpiano.ui.settings.SetupTab
 import io.github.ranzlappen.synthpiano.ui.sound.SoundTab
 
 private enum class Tab(val titleRes: Int) {
@@ -120,7 +120,7 @@ fun SynthAppRoot(
                         Tab.Perform -> PerformTab(synth = synth, prefs = prefs)
                         Tab.Sound -> SoundTab(synth = synth, prefs = prefs)
                         Tab.Compose -> ComposerTab(synth = synth, prefs = prefs)
-                        Tab.Setup -> SettingsScreen(synth = synth, prefs = prefs, midi = midi)
+                        Tab.Setup -> SetupTab(synth = synth, prefs = prefs, midi = midi, hwKeys = hwKeys)
                     }
                 }
             }
