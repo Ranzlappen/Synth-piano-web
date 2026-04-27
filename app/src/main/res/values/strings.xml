@@ -6,6 +6,10 @@
     <string name="nav_play">Play</string>
     <string name="nav_score">Score</string>
     <string name="nav_settings">Settings</string>
+    <string name="nav_perform">Perform</string>
+    <string name="nav_sound">Sound</string>
+    <string name="nav_compose">Compose</string>
+    <string name="nav_setup">Setup</string>
 
     <!-- Synth controls -->
     <string name="waveform">Waveform</string>
@@ -19,9 +23,15 @@
     <string name="adsr_sustain">Sustain</string>
     <string name="adsr_release">Release</string>
     <string name="amplitude">Amplitude</string>
+    <string name="master_volume">Master</string>
 
+    <string name="octave">Octave</string>
     <string name="octave_up">Octave +</string>
     <string name="octave_down">Octave −</string>
+
+    <!-- Scale highlight -->
+    <string name="scale_label">Scale</string>
+    <string name="scale_none">None</string>
 
     <!-- Chord pads -->
     <string name="chord_pads_title">Chord Pads</string>
@@ -31,6 +41,9 @@
     <string name="chord_quality_dim">Dim</string>
     <string name="chord_quality_sus">Sus</string>
     <string name="chord_pad_long_press_hint">Long-press a pad to assign a chord</string>
+    <string name="chord_assign_title">Assign chord</string>
+    <string name="chord_root">Root</string>
+    <string name="chord_quality">Quality</string>
 
     <!-- Recording -->
     <string name="record_start">Record</string>
@@ -38,38 +51,76 @@
     <string name="record_share">Share recording</string>
     <string name="record_saved">Saved %1$s</string>
     <string name="record_error">Recording failed: %1$s</string>
+    <string name="recording_now">REC</string>
+    <string name="recordings_section">Recordings</string>
+    <string name="recordings_empty">No recordings yet</string>
+    <string name="recording_delete">Delete</string>
 
     <!-- Score -->
     <string name="score_play">Play score</string>
     <string name="score_pause">Pause score</string>
+    <string name="score_stop">Stop</string>
     <string name="score_load">Load .json</string>
     <string name="score_load_demo">Load demo</string>
     <string name="score_save">Save</string>
+    <string name="score_save_as">Save As…</string>
     <string name="score_new">New score</string>
     <string name="score_no_score_loaded">No score loaded</string>
     <string name="score_loaded">Loaded: %1$s</string>
     <string name="score_load_failed">Failed to load score: %1$s</string>
+    <string name="score_save_failed">Failed to save score: %1$s</string>
+    <string name="score_saved">Saved score</string>
     <string name="score_step">Step %1$d / %2$d</string>
     <string name="score_tempo">Tempo</string>
+    <string name="score_title">Title</string>
+    <string name="score_notes">Notes</string>
+    <string name="score_beats">Beats</string>
+    <string name="score_add_step">Add step</string>
+    <string name="score_delete_step">Delete step</string>
 
     <!-- Settings -->
     <string name="settings_audio">Audio</string>
     <string name="settings_keyboard">Hardware Keyboard</string>
     <string name="settings_midi">MIDI</string>
     <string name="settings_about">About</string>
-    <string name="settings_remap_key">Tap to rebind</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_remap_key">Tap a row, then press a key to bind</string>
+    <string name="settings_capture_prompt">Press any key…</string>
+    <string name="settings_capture_cancel">Cancel</string>
+    <string name="settings_clear_binding">Clear</string>
     <string name="settings_reset_keys">Reset keymap to defaults</string>
     <string name="settings_polyphony">Polyphony</string>
     <string name="settings_polyphony_voices">%1$d voices</string>
+    <string name="settings_engine_running">Engine: running</string>
+    <string name="settings_engine_stopped">Engine: stopped</string>
+    <string name="settings_sample_rate">Sample rate: %1$s</string>
+    <string name="settings_engine_not_started">engine not started</string>
     <string name="settings_low_latency_mode">Low-latency mode (exclusive)</string>
     <string name="settings_low_latency_hint">Requests exclusive audio access from Oboe. Disable if you hear glitches with other apps.</string>
 
     <!-- MIDI -->
     <string name="midi_no_devices">No MIDI devices connected</string>
     <string name="midi_device_connected">Connected: %1$s</string>
+    <string name="midi_status_count">%1$d MIDI</string>
+    <string name="midi_status_none">No MIDI</string>
+    <string name="midi_hint">Plug a USB-MIDI controller via OTG. Bluetooth MIDI is not supported in this build.</string>
 
     <!-- About -->
     <string name="about_version">Version %1$s</string>
     <string name="about_source_attribution">Port of Ranzlappen/synth-piano (Python)</string>
     <string name="about_engine">Audio engine: Google Oboe</string>
+    <string name="about_license">MIT License</string>
+
+    <!-- Tab descriptions / hints -->
+    <string name="sound_oscillator">Oscillator</string>
+    <string name="sound_envelope">Envelope</string>
+    <string name="sound_oscilloscope">Oscilloscope</string>
+    <string name="sound_master_amp_label">Master amplitude</string>
+    <string name="perform_keyboard">Keyboard</string>
+
+    <!-- Generic actions -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_share">Share</string>
+    <string name="action_delete">Delete</string>
 </resources>
