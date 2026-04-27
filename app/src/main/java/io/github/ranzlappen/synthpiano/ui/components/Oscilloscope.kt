@@ -22,9 +22,12 @@ import kotlinx.coroutines.delay
  * ~30fps, downsamples the latest window into [pixelColumns] points, and
  * draws a simple polyline on a black grid background.
  *
- * Enables the native scope tap on [DisposableEffect] so the audio thread
- * stops writing to the ring as soon as the SOUND tab leaves the
- * composition.
+ * Enables the native scope tap on first composition. Once enabled the tap
+ * stays on for the lifetime of the process — the [HeaderStrip] instance is
+ * always mounted, and disabling the tap on dispose would race with other
+ * mounted Oscilloscopes (e.g. the SOUND tab's larger waveform). The cost
+ * of the always-on tap is negligible: a single ring-buffer write per
+ * audio block.
  */
 @Composable
 fun Oscilloscope(
@@ -40,7 +43,7 @@ fun Oscilloscope(
 
     DisposableEffect(synth) {
         synth.engine().setScopeEnabled(true)
-        onDispose { synth.engine().setScopeEnabled(false) }
+        onDispose { /* leave the tap on; see KDoc */ }
     }
 
     LaunchedEffect(synth) {

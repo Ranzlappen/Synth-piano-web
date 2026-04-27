@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.Icon
@@ -18,14 +20,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.audio.SynthController
 
 /**
- * Persistent global header for the workstation. Rendered above every tab so
- * the player can always see the level, MIDI status, and recording chip and
- * tweak master volume regardless of which surface is foregrounded.
+ * Persistent global header for the workstation. Rendered above every tab
+ * so the player can always see live waveform, level, MIDI status, and
+ * recording chip and tweak master volume regardless of which surface is
+ * foregrounded.
+ *
+ * The leftmost slot is a live oscilloscope (replacing the old "Synth
+ * Piano" title) that gives players a constant readout of the master mix.
  */
 @Composable
 fun HeaderStrip(
@@ -39,7 +46,6 @@ fun HeaderStrip(
     hasLastRecording: Boolean,
     onRecordToggle: () -> Unit,
     onShareLast: () -> Unit,
-    appName: String,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -50,16 +56,19 @@ fun HeaderStrip(
             .background(MaterialTheme.colorScheme.background.copy(alpha = 0.4f))
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        Text(
-            text = appName,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+        Oscilloscope(
+            synth = synth,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .width(120.dp)
+                .height(28.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color.Black.copy(alpha = 0.35f)),
+            pixelColumns = 128,
         )
-        Spacer(Modifier.width(4.dp))
 
         MidiStatusChip(deviceNames = midiDevices, onClick = onMidiClick)
 
-        Spacer(Modifier.width(0.dp))
         Icon(
             imageVector = Icons.Filled.GraphicEq,
             contentDescription = null,

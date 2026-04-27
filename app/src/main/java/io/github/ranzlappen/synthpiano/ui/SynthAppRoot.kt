@@ -98,7 +98,6 @@ fun SynthAppRoot(
                 hasLastRecording = lastPath != null,
                 onRecordToggle = { session.toggle(ctx) },
                 onShareLast = { session.shareLast(ctx) },
-                appName = stringResource(R.string.app_name),
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
 

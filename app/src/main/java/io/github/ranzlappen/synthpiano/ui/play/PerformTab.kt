@@ -3,38 +3,31 @@ package io.github.ranzlappen.synthpiano.ui.play
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
+import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
-import io.github.ranzlappen.synthpiano.data.Scale
-import io.github.ranzlappen.synthpiano.data.defaultChordPads
-import io.github.ranzlappen.synthpiano.data.parseChordPadsJson
-import io.github.ranzlappen.synthpiano.data.toJson
+import io.github.ranzlappen.synthpiano.data.buildChordIntervals
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
-import io.github.ranzlappen.synthpiano.ui.components.ScalePicker
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -43,11 +36,14 @@ import kotlinx.coroutines.launch
  * The PERFORM tab: the workstation's primary play surface.
  *
  * Layout (top → bottom):
- *  1. Slim toolbar: Scale picker + chord-pad hint.
- *  2. Chord pad strip with vertical-text pads, anchored to the keyboard's
- *     leftmost-visible C (so chords play "what you can see").
- *  3. Full-piano A0–C8 keyboard, horizontally scrollable, taking the rest
- *     of the viewport.
+ *  1. Two rows of chord-modifier buttons. The top row (LOCK) is sticky:
+ *     tap a quality to toggle it, persists across sessions. The bottom
+ *     row (SHIFT) is momentary: a quality is active only while held. The
+ *     union of both sets decorates whichever piano key is currently
+ *     pressed. With nothing active, a key plays a single note.
+ *  2. Full-piano A0–C8 keyboard, horizontally scrollable, taking the rest
+ *     of the viewport. Two-finger pinch on the keyboard re-scales white
+ *     keys within 0.5×–2.0×.
  */
 @Composable
 fun PerformTab(
@@ -59,27 +55,33 @@ fun PerformTab(
     val density = LocalDensity.current
 
     val heldBySource by synth.heldBySource.collectAsState()
-    val padsJson by prefs.chordPadsJson.collectAsState(initial = null)
-    val scaleName by prefs.scaleKey.collectAsState(initial = "NONE")
-    val scale = remember(scaleName) { Scale.fromName(scaleName) }
+    val sticky by prefs.chordModSticky.collectAsState(initial = emptySet())
+    val zoom by prefs.pianoZoom.collectAsState(initial = 1.0f)
     val savedLeftC by prefs.keyboardLeftC.collectAsState(initial = 48)
 
-    val pads = remember(padsJson) {
-        padsJson?.let { runCatching { parseChordPadsJson(it) }.getOrNull() }
-            ?: defaultChordPads()
-    }
+    // Held (momentary) modifiers live only in memory; releasing the
+    // SHIFT button or app exit clears them.
+    var held by remember { mutableStateOf<Set<ChordQuality>>(emptySet()) }
+
+    // Map: piano-key MIDI root -> notes currently sounding for that root.
+    // Snapshots the chord at note-on so that toggling sticky modifiers mid-
+    // press doesn't re-voice the live chord; releasing the same root lets
+    // us turn off the exact notes we started.
+    val activeChordsByRoot = remember { mutableStateMapOf<Int, List<Int>>() }
 
     val scrollState = rememberScrollState()
-    val whiteKeyPx = with(density) { PIANO_WHITE_KEY_DP.toPx() }
+    val whiteKeyPx = with(density) { (PIANO_WHITE_KEY_DP * zoom).toPx() }
 
-    // Restore persisted scroll position once whiteKeyPx is known. Subsequent
-    // user scrolls take precedence.
-    LaunchedEffect(whiteKeyPx) {
+    // Restore persisted scroll position once on first composition; do NOT
+    // re-key on whiteKeyPx, otherwise pinch-driven changes would re-snap
+    // scroll to the saved C every frame.
+    LaunchedEffect(Unit) {
         val target = scrollPxForC(savedLeftC, whiteKeyPx)
         if (scrollState.value != target) scrollState.scrollTo(target)
     }
 
-    // Persist scroll changes (skip the initial value from the snapshotFlow).
+    // Persist scroll changes; re-key on whiteKeyPx so the persisted left-C
+    // reflects the current zoom.
     LaunchedEffect(whiteKeyPx) {
         androidx.compose.runtime.snapshotFlow { scrollState.value }
             .drop(1)
@@ -90,56 +92,52 @@ fun PerformTab(
             }
     }
 
+    val onPianoNoteOn: (Int) -> Unit = { rootMidi ->
+        val intervals = buildChordIntervals(sticky union held)
+        val notes = intervals
+            .map { (rootMidi + it).coerceIn(0, 127) }
+            .distinct()
+        activeChordsByRoot[rootMidi] = notes
+        notes.forEach { synth.noteOn(it, source = NoteSource.TOUCH) }
+    }
+    val onPianoNoteOff: (Int) -> Unit = { rootMidi ->
+        (activeChordsByRoot.remove(rootMidi) ?: listOf(rootMidi))
+            .forEach { synth.noteOff(it) }
+    }
+
+    val qualities = remember { ChordQuality.values().toList() }
+
     Column(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                ScalePicker(
-                    selected = scale,
-                    onSelect = { s -> scope.launch { prefs.setScaleKey(s.name) } },
+                ChordModifierRow(
+                    label = "LOCK",
+                    qualities = qualities,
+                    selected = sticky,
+                    onToggle = { q ->
+                        val next = if (q in sticky) sticky - q else sticky + q
+                        scope.launch { prefs.setChordModSticky(next) }
+                    },
                 )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    stringResource(R.string.chord_pad_long_press_hint),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                ChordModifierRow(
+                    label = "SHIFT",
+                    qualities = qualities,
+                    selected = held,
+                    momentary = true,
+                    onPress = { q -> held = held + q },
+                    onRelease = { q -> held = held - q },
                 )
             }
         }
 
-        GlassCard(modifier = Modifier.fillMaxWidth().height(92.dp)) {
-            ChordPadStrip(
-                pads = pads,
-                onPadDown = { pad ->
-                    val baseC = leftmostVisibleC(scrollState.value, whiteKeyPx)
-                    chordNotes(pad, baseC).forEach { midi ->
-                        val safe = midi.coerceIn(0, 127)
-                        synth.noteOn(safe, source = NoteSource.TOUCH)
-                    }
-                },
-                onPadUp = { pad ->
-                    val baseC = leftmostVisibleC(scrollState.value, whiteKeyPx)
-                    chordNotes(pad, baseC).forEach { midi ->
-                        val safe = midi.coerceIn(0, 127)
-                        synth.noteOff(safe)
-                    }
-                },
-                onAssign = { i, newPad ->
-                    val updated = pads.toMutableList().apply { this[i] = newPad }
-                    scope.launch { prefs.setChordPadsJson(updated.toJson()) }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        // Piano takes the remaining space. heightIn floor prevents collapse
-        // on extreme small landscape phones.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -151,9 +149,10 @@ fun PerformTab(
                 modifier = Modifier.fillMaxSize(),
                 scrollState = scrollState,
                 heldBySource = heldBySource,
-                scale = scale,
-                onNoteOn = { synth.noteOn(it, source = NoteSource.TOUCH) },
-                onNoteOff = { synth.noteOff(it) },
+                zoom = zoom,
+                onZoomChange = { z -> scope.launch { prefs.setPianoZoom(z) } },
+                onNoteOn = onPianoNoteOn,
+                onNoteOff = onPianoNoteOff,
             )
         }
     }
