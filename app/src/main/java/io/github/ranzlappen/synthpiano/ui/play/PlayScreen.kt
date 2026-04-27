@@ -18,6 +18,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
@@ -42,12 +45,14 @@ import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.defaultChordPads
 import io.github.ranzlappen.synthpiano.data.parseChordPadsJson
 import io.github.ranzlappen.synthpiano.data.toJson
+import io.github.ranzlappen.synthpiano.ui.Tab
 import kotlinx.coroutines.launch
 
 @Composable
 fun PlayScreen(
     synth: SynthController,
     prefs: PreferencesRepository,
+    onNavigate: (Tab) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -68,6 +73,7 @@ fun PlayScreen(
     var isRecording by remember { mutableStateOf(false) }
     var lastRecordingPath by remember { mutableStateOf<String?>(null) }
     var showSynthSheet by remember { mutableStateOf(false) }
+    var showOverflow by remember { mutableStateOf(false) }
 
     // Persist live settings as the user adjusts them. Only fires on change.
     LaunchedEffect(waveform) { prefs.setWaveform(waveform) }
@@ -118,6 +124,24 @@ fun PlayScreen(
             }
             IconButton(onClick = { showSynthSheet = true }) {
                 Icon(Icons.Filled.Tune, contentDescription = "Synth parameters")
+            }
+            Box {
+                IconButton(onClick = { showOverflow = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                }
+                DropdownMenu(
+                    expanded = showOverflow,
+                    onDismissRequest = { showOverflow = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Score") },
+                        onClick = { showOverflow = false; onNavigate(Tab.Score) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Settings") },
+                        onClick = { showOverflow = false; onNavigate(Tab.Settings) },
+                    )
+                }
             }
         }
 
