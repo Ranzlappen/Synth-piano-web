@@ -25,8 +25,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -156,7 +154,6 @@ fun ScoreScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DemoMenuButton(onPick: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -166,17 +163,17 @@ private fun DemoMenuButton(onPick: (String) -> Unit) {
         "frere_jacques.json" to "Frère Jacques",
         "scarborough_fair.json" to "Scarborough Fair",
     )
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-        Button(
-            onClick = { expanded = true },
-            modifier = Modifier.menuAnchor(),
-        ) { Text("Load demo") }
+    Box {
+        Button(onClick = { expanded = true }) { Text("Load demo") }
         androidx.compose.material3.DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
             demos.forEach { (file, label) ->
-                DropdownMenuItem(text = { Text(label) }, onClick = { onPick(file); expanded = false })
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = { onPick(file); expanded = false },
+                )
             }
         }
     }
