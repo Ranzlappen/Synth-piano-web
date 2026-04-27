@@ -104,7 +104,7 @@ fun PianoKeyboard(
 
     Box(modifier = modifier
         .onSizeChanged { size = it }
-        .pointerInput(Unit) {
+        .pointerInput(firstMidiNote, whiteKeyCount) {
             keyboardGestureLoop(
                 onDown = { id, pos ->
                     val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
