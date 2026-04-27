@@ -36,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -102,7 +102,7 @@ jobs:
         run: ./gradlew assembleRelease --stacktrace --no-daemon
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: synth-piano-debug-apk
           path: app/build/outputs/apk/debug/*.apk
@@ -110,7 +110,7 @@ jobs:
           retention-days: 14
 
       - name: Upload release AAB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: synth-piano-release-aab
           path: app/build/outputs/bundle/release/*.aab
@@ -119,7 +119,7 @@ jobs:
 
       - name: Upload release APK
         if: steps.keystore.outputs.signing == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: synth-piano-release-apk
           path: app/build/outputs/apk/release/*.apk
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload lint report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lint-reports
           path: app/build/reports/lint-results-*.html
@@ -137,7 +137,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: unit-test-reports
           path: app/build/reports/tests/testDebugUnitTest/
@@ -158,13 +158,13 @@ jobs:
       contents: write
     steps:
       - name: Download release AAB
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: synth-piano-release-aab
           path: dist/
 
       - name: Download release APK (if present)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         continue-on-error: true
         with:
           name: synth-piano-release-apk
