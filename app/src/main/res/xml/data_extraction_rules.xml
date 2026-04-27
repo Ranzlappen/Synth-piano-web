@@ -3,7 +3,6 @@
     <cloud-backup>
         <include domain="sharedpref" path="." />
         <include domain="file" path="datastore/" />
-        <exclude domain="file" path="recordings/" />
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="." />
