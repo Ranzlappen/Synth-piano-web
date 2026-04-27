@@ -10,13 +10,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -63,7 +67,9 @@ import io.github.ranzlappen.synthpiano.data.ScoreStep
 import io.github.ranzlappen.synthpiano.data.parseScoreJson
 import io.github.ranzlappen.synthpiano.data.toJsonString
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
+import io.github.ranzlappen.synthpiano.ui.components.HorizontalDragHandle
 import io.github.ranzlappen.synthpiano.ui.components.RecordingsList
+import io.github.ranzlappen.synthpiano.ui.components.VerticalDragHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -131,89 +137,92 @@ fun ComposerTab(
 
     val widthDp = LocalConfiguration.current.screenWidthDp
     val sideBySide = widthDp >= 900
+    val density = androidx.compose.ui.platform.LocalDensity.current
+
+    val editorWeight by prefs.composerEditorWeight.collectAsState(initial = 0.667f)
+    val editorHeightDp by prefs.composerEditorHeightDp.collectAsState(initial = 600f)
+
+    val editorPaneFactory: @Composable (Modifier) -> Unit = { paneModifier ->
+        EditorPane(
+            score = score,
+            onScoreChange = { score = it },
+            tempo = tempo,
+            onTempoChange = { v -> scope.launch { prefs.setTempoBpm(v) } },
+            isPlaying = isPlaying,
+            currentStep = currentStep,
+            onTogglePlay = {
+                val s = score ?: return@EditorPane
+                if (isPlaying) player.stop() else player.start(s, tempo)
+            },
+            status = status,
+            onLoadJson = { openLauncher.launch(arrayOf("application/json", "*/*")) },
+            onLoadDemo = { name ->
+                scope.launch {
+                    val (loaded, msg) = readScoreFromAsset(ctx, "scores/$name")
+                    if (loaded != null) { score = loaded; status = "Demo: ${loaded.title ?: name}" }
+                    else status = msg
+                }
+            },
+            onNew = {
+                score = Score(notes = emptyList(), title = "Untitled", tempoBpm = tempo)
+                status = "New empty score"
+            },
+            onSaveAs = {
+                val name = (score?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.json" }
+                saveLauncher.launch(name)
+            },
+            modifier = paneModifier,
+        )
+    }
 
     if (sideBySide) {
-        Row(
-            modifier = modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            EditorPane(
-                score = score,
-                onScoreChange = { score = it },
-                tempo = tempo,
-                onTempoChange = { v -> scope.launch { prefs.setTempoBpm(v) } },
-                isPlaying = isPlaying,
-                currentStep = currentStep,
-                onTogglePlay = {
-                    val s = score ?: return@EditorPane
-                    if (isPlaying) player.stop() else player.start(s, tempo)
-                },
-                status = status,
-                onLoadJson = { openLauncher.launch(arrayOf("application/json", "*/*")) },
-                onLoadDemo = { name ->
-                    scope.launch {
-                        val (loaded, msg) = readScoreFromAsset(ctx, "scores/$name")
-                        if (loaded != null) { score = loaded; status = "Demo: ${loaded.title ?: name}" }
-                        else status = msg
-                    }
-                },
-                onNew = {
-                    score = Score(notes = emptyList(), title = "Untitled", tempoBpm = tempo)
-                    status = "New empty score"
-                },
-                onSaveAs = {
-                    val name = (score?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.json" }
-                    saveLauncher.launch(name)
-                },
-                modifier = Modifier.weight(2f).fillMaxHeight(),
-            )
-            RecordingsPane(
-                recorder = recorder,
-                refreshTick = recordingsRefreshTick,
-                onRefresh = { recordingsRefreshTick++ },
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-            )
+        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+            val totalWidthPx = with(density) { maxWidth.toPx() }
+            Row(modifier = Modifier.fillMaxSize()) {
+                editorPaneFactory(Modifier.weight(editorWeight).fillMaxHeight())
+                VerticalDragHandle(
+                    onDelta = { dx ->
+                        val w = (editorWeight + dx / totalWidthPx).coerceIn(0.2f, 0.85f)
+                        scope.launch { prefs.setComposerEditorWeight(w) }
+                    },
+                )
+                RecordingsPane(
+                    recorder = recorder,
+                    refreshTick = recordingsRefreshTick,
+                    onRefresh = { recordingsRefreshTick++ },
+                    modifier = Modifier.weight(1f - editorWeight).fillMaxHeight(),
+                )
+            }
         }
     } else {
+        // Stacked: scrollable parent, fixed-height editor (tripled by
+        // default), drag handle, then recordings with a bounded height so
+        // the LazyColumn inside can measure under verticalScroll.
+        val scroll = rememberScrollState()
         Column(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                .verticalScroll(scroll),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            EditorPane(
-                score = score,
-                onScoreChange = { score = it },
-                tempo = tempo,
-                onTempoChange = { v -> scope.launch { prefs.setTempoBpm(v) } },
-                isPlaying = isPlaying,
-                currentStep = currentStep,
-                onTogglePlay = {
-                    val s = score ?: return@EditorPane
-                    if (isPlaying) player.stop() else player.start(s, tempo)
+            editorPaneFactory(
+                Modifier
+                    .fillMaxWidth()
+                    .height(editorHeightDp.dp),
+            )
+            HorizontalDragHandle(
+                onDelta = { dy ->
+                    val newDp = editorHeightDp + with(density) { dy.toDp().value }
+                    scope.launch { prefs.setComposerEditorHeightDp(newDp) }
                 },
-                status = status,
-                onLoadJson = { openLauncher.launch(arrayOf("application/json", "*/*")) },
-                onLoadDemo = { name ->
-                    scope.launch {
-                        val (loaded, msg) = readScoreFromAsset(ctx, "scores/$name")
-                        if (loaded != null) { score = loaded; status = "Demo: ${loaded.title ?: name}" }
-                        else status = msg
-                    }
-                },
-                onNew = {
-                    score = Score(notes = emptyList(), title = "Untitled", tempoBpm = tempo)
-                    status = "New empty score"
-                },
-                onSaveAs = {
-                    val name = (score?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.json" }
-                    saveLauncher.launch(name)
-                },
-                modifier = Modifier.fillMaxWidth().weight(2f),
             )
             RecordingsPane(
                 recorder = recorder,
                 refreshTick = recordingsRefreshTick,
                 onRefresh = { recordingsRefreshTick++ },
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 200.dp, max = 480.dp),
             )
         }
     }

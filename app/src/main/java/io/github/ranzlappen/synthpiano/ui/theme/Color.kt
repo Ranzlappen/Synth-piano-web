@@ -153,8 +153,6 @@ val SourceHwKey = Color(0xFFC8F07A)     // mint accent
 val KeyWhite = Color(0xFFF8F5F0)
 val KeyBlack = Color(0xFF1A1622)
 val KeyLabel = Color(0xFF373045)
-val KeyDimmed = Color(0xFF8E8A95)       // out-of-scale white-key fill
-val KeyDimmedBlack = Color(0xFF3A3340)  // out-of-scale black-key fill
 
 // Legacy aliases — referenced by unmodified files until later phases
 // rewrite the keyboard / play screen. Pinned to the new Aurora palette.

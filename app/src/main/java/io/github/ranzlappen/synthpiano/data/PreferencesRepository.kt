@@ -26,11 +26,13 @@ private object Keys {
     val OCTAVE = intPreferencesKey("octave")
     val KEYBOARD_LEFT_C = intPreferencesKey("keyboard_left_c")
     val KEYMAP_JSON = stringPreferencesKey("keymap_json")
-    val CHORD_PADS_JSON = stringPreferencesKey("chord_pads_json")
     val LAST_SCORE_URI = stringPreferencesKey("last_score_uri")
     val TEMPO_BPM = intPreferencesKey("tempo_bpm")
     val THEME_ACCENT = stringPreferencesKey("theme_accent")
-    val SCALE_KEY = stringPreferencesKey("scale_key")
+    val CHORD_MOD_STICKY = stringPreferencesKey("chord_mod_sticky")
+    val PIANO_ZOOM = floatPreferencesKey("piano_zoom")
+    val COMPOSER_EDITOR_W = floatPreferencesKey("composer_editor_weight")
+    val COMPOSER_EDITOR_H = floatPreferencesKey("composer_editor_height")
 }
 
 /**
@@ -70,9 +72,6 @@ class PreferencesRepository(private val context: Context) {
     val keymapJson: Flow<String?> =
         context.dataStore.data.map { it[Keys.KEYMAP_JSON] }
 
-    val chordPadsJson: Flow<String?> =
-        context.dataStore.data.map { it[Keys.CHORD_PADS_JSON] }
-
     val lastScoreUri: Flow<String?> =
         context.dataStore.data.map { it[Keys.LAST_SCORE_URI] }
 
@@ -82,8 +81,21 @@ class PreferencesRepository(private val context: Context) {
     val themeAccent: Flow<String> =
         context.dataStore.data.map { it[Keys.THEME_ACCENT] ?: "AURORA" }
 
-    val scaleKey: Flow<String> =
-        context.dataStore.data.map { it[Keys.SCALE_KEY] ?: "NONE" }
+    /** Sticky chord modifiers (LOCK row of the perform-tab modifier strip). */
+    val chordModSticky: Flow<Set<ChordQuality>> =
+        context.dataStore.data.map { parseChordModifierSet(it[Keys.CHORD_MOD_STICKY]) }
+
+    /** Piano keyboard zoom factor (white-key width multiplier). */
+    val pianoZoom: Flow<Float> =
+        context.dataStore.data.map { (it[Keys.PIANO_ZOOM] ?: 1.0f).coerceIn(0.5f, 2.0f) }
+
+    /** Composer editor pane weight in side-by-side layout (>=900dp). */
+    val composerEditorWeight: Flow<Float> =
+        context.dataStore.data.map { (it[Keys.COMPOSER_EDITOR_W] ?: 0.667f).coerceIn(0.2f, 0.85f) }
+
+    /** Composer editor pane height (dp) in stacked layout (<900dp). */
+    val composerEditorHeightDp: Flow<Float> =
+        context.dataStore.data.map { (it[Keys.COMPOSER_EDITOR_H] ?: 600f).coerceIn(120f, 4000f) }
 
     suspend fun setWaveform(w: Waveform) =
         edit { it[Keys.WAVEFORM] = w.name }
@@ -103,8 +115,6 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setKeymapJson(json: String) = edit { it[Keys.KEYMAP_JSON] = json }
 
-    suspend fun setChordPadsJson(json: String) = edit { it[Keys.CHORD_PADS_JSON] = json }
-
     suspend fun setLastScoreUri(uri: String?) = edit {
         if (uri == null) it.remove(Keys.LAST_SCORE_URI) else it[Keys.LAST_SCORE_URI] = uri
     }
@@ -113,7 +123,17 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setThemeAccent(name: String) = edit { it[Keys.THEME_ACCENT] = name }
 
-    suspend fun setScaleKey(name: String) = edit { it[Keys.SCALE_KEY] = name }
+    suspend fun setChordModSticky(s: Set<ChordQuality>) =
+        edit { it[Keys.CHORD_MOD_STICKY] = s.toPrefString() }
+
+    suspend fun setPianoZoom(z: Float) =
+        edit { it[Keys.PIANO_ZOOM] = z.coerceIn(0.5f, 2.0f) }
+
+    suspend fun setComposerEditorWeight(w: Float) =
+        edit { it[Keys.COMPOSER_EDITOR_W] = w.coerceIn(0.2f, 0.85f) }
+
+    suspend fun setComposerEditorHeightDp(dp: Float) =
+        edit { it[Keys.COMPOSER_EDITOR_H] = dp.coerceIn(120f, 4000f) }
 
     /** Synchronous snapshot of the keymap JSON for non-suspending init paths. */
     fun blockingKeymapJson(): String? = runBlocking { keymapJson.first() }
@@ -131,7 +151,8 @@ class PreferencesRepository(private val context: Context) {
     fun keysSnapshot(): Set<Preferences.Key<*>> = setOf(
         Keys.WAVEFORM, Keys.ATTACK, Keys.DECAY, Keys.SUSTAIN, Keys.RELEASE,
         Keys.MASTER_AMP, Keys.OCTAVE, Keys.KEYBOARD_LEFT_C, Keys.KEYMAP_JSON,
-        Keys.CHORD_PADS_JSON, Keys.LAST_SCORE_URI, Keys.TEMPO_BPM,
-        Keys.THEME_ACCENT, Keys.SCALE_KEY,
+        Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT,
+        Keys.CHORD_MOD_STICKY, Keys.PIANO_ZOOM,
+        Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
     )
 }
