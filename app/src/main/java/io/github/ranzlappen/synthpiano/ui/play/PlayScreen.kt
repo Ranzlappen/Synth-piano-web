@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -128,7 +129,7 @@ fun PlayScreen(
         }
 
         // Chord pads (above keyboard)
-        Box(modifier = Modifier.fillMaxWidth().height(72.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
             ChordPadsRow(
                 pads = pads,
                 onPadDown = { pad -> chordNotes(pad).forEach { n -> synth.noteOn(n + octave * 12) } },
@@ -140,9 +141,14 @@ fun PlayScreen(
             )
         }
 
-        // The keyboard takes whatever space is left.
+        // The keyboard takes the remaining space. Inside a Column, fillMaxSize
+        // does NOT claim leftover space — weight(1f) does. Floor at 120.dp so
+        // even an extreme small landscape phone never collapses the keys.
         PianoKeyboard(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .heightIn(min = 120.dp),
             firstMidiNote = 48 + octave * 12,
             whiteKeyCount = 14,
             heldNotes = held,

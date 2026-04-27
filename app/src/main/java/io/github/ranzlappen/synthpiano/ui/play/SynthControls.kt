@@ -3,10 +3,8 @@ package io.github.ranzlappen.synthpiano.ui.play
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -27,16 +25,17 @@ fun SynthControlsBar(
     onMasterAmp: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+    Column(modifier = modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text("Wave:", style = MaterialTheme.typography.labelMedium)
-            Spacer(Modifier.width(8.dp))
             Waveform.values().forEach { w ->
                 FilterChip(
                     selected = w == waveform,
                     onClick = { onWaveform(w) },
-                    label = { Text(w.displayName()) },
-                    modifier = Modifier.padding(end = 4.dp),
+                    label = { Text(w.displayName(), style = MaterialTheme.typography.labelMedium) },
                 )
             }
         }
