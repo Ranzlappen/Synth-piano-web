@@ -11,9 +11,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Piano
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,11 +44,11 @@ import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.components.AppGradientBackground
-import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 import io.github.ranzlappen.synthpiano.ui.components.HeaderStrip
 import io.github.ranzlappen.synthpiano.ui.play.PerformTab
 import io.github.ranzlappen.synthpiano.ui.score.ScoreScreen
 import io.github.ranzlappen.synthpiano.ui.settings.SettingsScreen
+import io.github.ranzlappen.synthpiano.ui.sound.SoundTab
 
 private enum class Tab(val titleRes: Int) {
     Perform(R.string.nav_perform),
@@ -119,7 +118,7 @@ fun SynthAppRoot(
                 ) {
                     when (tab) {
                         Tab.Perform -> PerformTab(synth = synth, prefs = prefs)
-                        Tab.Sound -> SoundTabPlaceholder()
+                        Tab.Sound -> SoundTab(synth = synth, prefs = prefs)
                         Tab.Compose -> ScoreScreen(synth = synth, prefs = prefs)
                         Tab.Setup -> SettingsScreen(synth = synth, prefs = prefs, midi = midi)
                     }
@@ -198,29 +197,3 @@ private fun MidiDeviceSheetContent(deviceNames: List<String>) {
     }
 }
 
-@Composable
-private fun SoundTabPlaceholder() {
-    GlassCard(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    Icons.Filled.MusicNote,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-                Text(
-                    stringResource(R.string.nav_sound),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    "Oscillator, envelope, and oscilloscope land here in Phase 5.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
