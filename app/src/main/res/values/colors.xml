@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand seed: a saturated synth-purple so the theme has identity even
+         when dynamic color isn't available (Android 11 and below, or
+         disabled in settings). Material 3 derives the rest of the palette. -->
+    <color name="seed_primary">#7B5BD6</color>
+    <color name="seed_primary_dark">#5238A6</color>
+    <color name="seed_secondary">#FFB74D</color>
+
+    <!-- Adaptive icon background -->
+    <color name="ic_launcher_background">#1A0F2E</color>
+
+    <!-- Piano-specific palette (used by Compose key drawing) -->
+    <color name="key_white">#F8F5F0</color>
+    <color name="key_white_pressed">#C9BBE5</color>
+    <color name="key_black">#1F1A2E</color>
+    <color name="key_black_pressed">#7B5BD6</color>
+    <color name="key_label">#373045</color>
+</resources>

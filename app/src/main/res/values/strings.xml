@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Synth Piano</string>
+
+    <!-- Top-level navigation -->
+    <string name="nav_play">Play</string>
+    <string name="nav_score">Score</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Synth controls -->
+    <string name="waveform">Waveform</string>
+    <string name="waveform_sine">Sine</string>
+    <string name="waveform_square">Square</string>
+    <string name="waveform_saw">Saw</string>
+    <string name="waveform_triangle">Triangle</string>
+
+    <string name="adsr_attack">Attack</string>
+    <string name="adsr_decay">Decay</string>
+    <string name="adsr_sustain">Sustain</string>
+    <string name="adsr_release">Release</string>
+    <string name="amplitude">Amplitude</string>
+
+    <string name="octave_up">Octave +</string>
+    <string name="octave_down">Octave −</string>
+
+    <!-- Chord pads -->
+    <string name="chord_pads_title">Chord Pads</string>
+    <string name="chord_quality_maj">Maj</string>
+    <string name="chord_quality_min">Min</string>
+    <string name="chord_quality_seven">7</string>
+    <string name="chord_quality_dim">Dim</string>
+    <string name="chord_quality_sus">Sus</string>
+    <string name="chord_pad_long_press_hint">Long-press a pad to assign a chord</string>
+
+    <!-- Recording -->
+    <string name="record_start">Record</string>
+    <string name="record_stop">Stop</string>
+    <string name="record_share">Share recording</string>
+    <string name="record_saved">Saved %1$s</string>
+    <string name="record_error">Recording failed: %1$s</string>
+
+    <!-- Score -->
+    <string name="score_play">Play score</string>
+    <string name="score_pause">Pause score</string>
+    <string name="score_load">Load .json</string>
+    <string name="score_load_demo">Load demo</string>
+    <string name="score_save">Save</string>
+    <string name="score_new">New score</string>
+    <string name="score_no_score_loaded">No score loaded</string>
+    <string name="score_loaded">Loaded: %1$s</string>
+    <string name="score_load_failed">Failed to load score: %1$s</string>
+    <string name="score_step">Step %1$d / %2$d</string>
+    <string name="score_tempo">Tempo</string>
+
+    <!-- Settings -->
+    <string name="settings_audio">Audio</string>
+    <string name="settings_keyboard">Hardware Keyboard</string>
+    <string name="settings_midi">MIDI</string>
+    <string name="settings_about">About</string>
+    <string name="settings_remap_key">Tap to rebind</string>
+    <string name="settings_reset_keys">Reset keymap to defaults</string>
+    <string name="settings_polyphony">Polyphony</string>
+    <string name="settings_polyphony_voices">%1$d voices</string>
+    <string name="settings_low_latency_mode">Low-latency mode (exclusive)</string>
+    <string name="settings_low_latency_hint">Requests exclusive audio access from Oboe. Disable if you hear glitches with other apps.</string>
+
+    <!-- MIDI -->
+    <string name="midi_no_devices">No MIDI devices connected</string>
+    <string name="midi_device_connected">Connected: %1$s</string>
+
+    <!-- About -->
+    <string name="about_version">Version %1$s</string>
+    <string name="about_source_attribution">Port of Ranzlappen/synth-piano (Python)</string>
+    <string name="about_engine">Audio engine: Google Oboe</string>
+</resources>

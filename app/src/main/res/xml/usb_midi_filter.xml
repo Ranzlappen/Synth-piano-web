@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- USB Audio Class spec, subclass 3 = MIDIStreaming.
+         Matches any USB MIDI device regardless of vendor/product. -->
+    <usb-device class="1" subclass="3" />
+</resources>
