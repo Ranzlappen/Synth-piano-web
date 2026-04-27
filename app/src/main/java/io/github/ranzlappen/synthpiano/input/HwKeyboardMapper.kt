@@ -1,6 +1,7 @@
 package io.github.ranzlappen.synthpiano.input
 
 import android.view.KeyEvent
+import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import kotlinx.serialization.Serializable
@@ -50,7 +51,7 @@ class HwKeyboardMapper(
         return when (event.action) {
             KeyEvent.ACTION_DOWN -> {
                 if (event.repeatCount == 0 && held.add(event.keyCode)) {
-                    synth.noteOn(midi)
+                    synth.noteOn(midi, source = NoteSource.HW_KEYBOARD)
                 }
                 true
             }

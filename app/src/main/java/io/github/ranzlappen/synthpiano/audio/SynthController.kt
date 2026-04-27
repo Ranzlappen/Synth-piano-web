@@ -5,12 +5,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
+ * Origin of a note event. Used by the piano view to color each pressed key
+ * with a hue matching its source (touch=primary, MIDI=secondary,
+ * score=tertiary, HW keyboard=accent).
+ */
+enum class NoteSource { TOUCH, MIDI, SCORE, HW_KEYBOARD }
+
+/**
  * Application-scoped façade over [NativeSynth]. UI code interacts with
  * StateFlows; the native engine receives plain calls.
  *
  * Held notes are tracked here so we can issue "all notes off" cleanly,
  * coalesce multiple touches on the same key, and surface a held-keys list
- * to the keyboard view for highlighting.
+ * to the keyboard view for highlighting. A second flow ([heldBySource])
+ * carries which input device triggered each currently-held note.
  */
 class SynthController(private val engine: NativeSynth) {
 
@@ -25,6 +33,9 @@ class SynthController(private val engine: NativeSynth) {
 
     private val _heldNotes = MutableStateFlow<Set<Int>>(emptySet())
     val heldNotes: StateFlow<Set<Int>> = _heldNotes.asStateFlow()
+
+    private val _heldBySource = MutableStateFlow<Map<Int, NoteSource>>(emptyMap())
+    val heldBySource: StateFlow<Map<Int, NoteSource>> = _heldBySource.asStateFlow()
 
     private val _started = MutableStateFlow(false)
     val started: StateFlow<Boolean> = _started.asStateFlow()
@@ -44,6 +55,7 @@ class SynthController(private val engine: NativeSynth) {
         engine.allNotesOff()
         engine.stop()
         _heldNotes.value = emptySet()
+        _heldBySource.value = emptyMap()
         _started.value = false
     }
 
@@ -52,21 +64,28 @@ class SynthController(private val engine: NativeSynth) {
         _started.value = false
     }
 
-    fun noteOn(midiNote: Int, velocity: Float = 0.85f) {
+    fun noteOn(
+        midiNote: Int,
+        velocity: Float = 0.85f,
+        source: NoteSource = NoteSource.TOUCH,
+    ) {
         if (midiNote !in 0..127) return
         engine.noteOn(midiNote, velocity)
         _heldNotes.update { it + midiNote }
+        _heldBySource.update { it + (midiNote to source) }
     }
 
     fun noteOff(midiNote: Int) {
         if (midiNote !in 0..127) return
         engine.noteOff(midiNote)
         _heldNotes.update { it - midiNote }
+        _heldBySource.update { it - midiNote }
     }
 
     fun allNotesOff() {
         engine.allNotesOff()
         _heldNotes.value = emptySet()
+        _heldBySource.value = emptyMap()
     }
 
     fun setWaveform(w: Waveform) {

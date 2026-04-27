@@ -4,17 +4,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,17 +31,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.data.ChordPad
 import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.data.intervalsFor
 
 /**
- * 11 chord pads. Tap to trigger; long-press to assign root + quality.
- * Defaults map roughly to the Python source's "chord row".
+ * Horizontally scrollable strip of chord pads. Tap a pad to trigger every
+ * note in the chord; long-press to open the inline editor (root × quality)
+ * as a bottom sheet.
+ *
+ * Pads scroll instead of squeezing into the available width so the layout
+ * is comfortable on narrow phones in landscape and on wide tablets alike.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChordPadsRow(
+fun ChordPadStrip(
     pads: List<ChordPad>,
     onPadDown: (ChordPad) -> Unit,
     onPadUp: (ChordPad) -> Unit,
@@ -42,33 +56,38 @@ fun ChordPadsRow(
     modifier: Modifier = Modifier,
 ) {
     var editing by remember { mutableStateOf<Int?>(null) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        pads.forEachIndexed { index, pad ->
+        itemsIndexed(pads) { index, pad ->
             PadButton(
                 pad = pad,
                 onDown = { onPadDown(pad) },
                 onUp = { onPadUp(pad) },
                 onLongPress = { editing = index },
-                modifier = Modifier.weight(1f).fillMaxSize(),
             )
         }
     }
 
-    editing?.let { idx ->
-        ChordEditDialog(
-            initial = pads[idx],
-            onDismiss = { editing = null },
-            onConfirm = { newPad ->
-                onAssign(idx, newPad)
-                editing = null
-            },
-        )
+    val current = editing
+    if (current != null) {
+        ModalBottomSheet(
+            onDismissRequest = { editing = null },
+            sheetState = sheetState,
+        ) {
+            ChordEditSheet(
+                initial = pads[current],
+                onSave = { newPad ->
+                    onAssign(current, newPad)
+                    editing = null
+                },
+                onCancel = { editing = null },
+            )
+        }
     }
 }
 
@@ -78,16 +97,15 @@ private fun PadButton(
     onDown: () -> Unit,
     onUp: () -> Unit,
     onLongPress: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    val color = MaterialTheme.colorScheme.secondaryContainer
+    val color = MaterialTheme.colorScheme.primaryContainer
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+        modifier = Modifier
+            .width(96.dp)
+            .height(56.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(color)
             .pointerInput(pad) {
-                // Long-press wins over tap; press triggers chord on down,
-                // releases on up.
                 detectTapGestures(
                     onLongPress = { onLongPress() },
                     onPress = {
@@ -105,60 +123,66 @@ private fun PadButton(
         Text(
             text = pad.label(),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }
 
 @Composable
-private fun ChordEditDialog(
+private fun ChordEditSheet(
     initial: ChordPad,
-    onDismiss: () -> Unit,
-    onConfirm: (ChordPad) -> Unit,
+    onSave: (ChordPad) -> Unit,
+    onCancel: () -> Unit,
 ) {
     var root by remember { mutableStateOf(initial.rootNote) }
     var quality by remember { mutableStateOf(initial.quality) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Assign chord") },
-        text = {
-            androidx.compose.foundation.layout.Column {
-                Text("Root", style = MaterialTheme.typography.labelMedium)
-                Spacer(Modifier.height(4.dp))
-                val roots = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    roots.forEachIndexed { i, name ->
-                        FilterChip(
-                            selected = (root % 12) == i,
-                            onClick = { root = 60 + i },
-                            label = { Text(name) },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Text("Quality", style = MaterialTheme.typography.labelMedium)
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ChordQuality.values().forEach { q ->
-                        FilterChip(
-                            selected = q == quality,
-                            onClick = { quality = q },
-                            label = { Text(q.label()) },
-                        )
-                    }
-                }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(stringResource(R.string.chord_assign_title), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.chord_root), style = MaterialTheme.typography.labelMedium)
+
+        val roots = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            itemsIndexed(roots) { i, name ->
+                FilterChip(
+                    selected = (root % 12) == i,
+                    onClick = { root = 60 + i },
+                    label = { Text(name) },
+                )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onConfirm(ChordPad(rootNote = root, quality = quality))
-            }) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
-    )
+
+        Spacer(Modifier.height(4.dp))
+        Text(stringResource(R.string.chord_quality), style = MaterialTheme.typography.labelMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ChordQuality.values().forEach { q ->
+                FilterChip(
+                    selected = q == quality,
+                    onClick = { quality = q },
+                    label = { Text(q.label()) },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Spacer(Modifier.weight(1f))
+            androidx.compose.material3.TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.action_cancel))
+            }
+            androidx.compose.material3.Button(
+                onClick = { onSave(ChordPad(rootNote = root, quality = quality)) },
+            ) { Text(stringResource(R.string.action_save)) }
+        }
+    }
 }
 
 /** Triggers all notes in a chord through the controller. */
