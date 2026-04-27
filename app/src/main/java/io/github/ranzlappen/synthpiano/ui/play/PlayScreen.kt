@@ -179,7 +179,6 @@ fun PlayScreen(
                 .weight(1f)
                 .heightIn(min = 120.dp),
             firstMidiNote = 48 + octave * 12,
-            whiteKeyCount = 14,
             heldNotes = held,
             onNoteOn = { synth.noteOn(it) },
             onNoteOff = { synth.noteOff(it) },
