@@ -21,6 +21,9 @@ void Voice::noteOn(int32_t midiNote, float velocity, Waveform wf, const AdsrPara
     velocity_ = velocity;
     osc_.setWaveform(wf);
     osc_.setFrequency(midiNoteToHz(midiNote));
+    // Piano needs a fresh noise burst per note-on; the user's ADSR still
+    // gates amplitude on top of the natural Karplus-Strong decay tail.
+    if (wf == Waveform::Piano) osc_.excite(midiNote);
     envelope_.noteOn(adsr);
 }
 

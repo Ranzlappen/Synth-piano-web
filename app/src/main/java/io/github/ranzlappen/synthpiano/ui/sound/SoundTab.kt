@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -29,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.SynthController
@@ -61,7 +65,10 @@ fun SoundTab(
     LaunchedEffect(adsr) { prefs.setAdsr(adsr) }
 
     val widthDp = LocalConfiguration.current.screenWidthDp
-    val wide = widthDp >= 700
+    // 700dp was too narrow — 800-900dp landscape phones were squeezing the
+    // three cards to the point where Triangle/Sustain clipped. Push the
+    // threshold up so phones in landscape stack vertically with outer scroll.
+    val wide = widthDp >= 900
 
     if (wide) {
         Row(
@@ -85,22 +92,24 @@ fun SoundTab(
         }
     } else {
         Column(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             OscillatorCard(
                 waveform = waveform,
                 onSelect = synth::setWaveform,
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
             )
             EnvelopeCard(
                 adsr = adsr,
                 onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec) },
-                modifier = Modifier.fillMaxWidth().weight(1.5f),
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
             )
             OscilloscopeCard(
                 synth = synth,
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier.fillMaxWidth().height(180.dp),
             )
         }
     }
@@ -114,25 +123,20 @@ private fun OscillatorCard(
 ) {
     GlassCard(modifier = modifier) {
         Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 stringResource(R.string.sound_oscillator),
                 style = MaterialTheme.typography.titleMedium,
             )
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Waveform.values().forEach { w ->
-                    WaveformTile(
-                        waveform = w,
-                        selected = w == waveform,
-                        onClick = { onSelect(w) },
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                    )
-                }
+            Waveform.values().forEach { w ->
+                WaveformTile(
+                    waveform = w,
+                    selected = w == waveform,
+                    onClick = { onSelect(w) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -157,7 +161,7 @@ private fun WaveformTile(
             .clip(RoundedCornerShape(14.dp))
             .background(container)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         WaveformIcon(
             waveform = waveform,
@@ -168,6 +172,9 @@ private fun WaveformTile(
             waveform.displayName(),
             style = MaterialTheme.typography.titleMedium,
             color = onContainer,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -233,6 +240,24 @@ private fun WaveformIcon(
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f),
                 )
             }
+            Waveform.PIANO -> {
+                // A decaying-cosine glyph evokes a plucked string envelope.
+                val path = androidx.compose.ui.graphics.Path()
+                path.moveTo(0f, mid)
+                val steps = 48
+                for (i in 1..steps) {
+                    val t = i.toFloat() / steps
+                    val x = t * w
+                    val decay = kotlin.math.exp(-2.5 * t).toFloat()
+                    val y = mid - kotlin.math.sin(t * 4 * Math.PI).toFloat() * (h * 0.4f) * decay
+                    path.lineTo(x, y)
+                }
+                drawPath(
+                    path = path,
+                    color = color,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f),
+                )
+            }
         }
     }
 }
@@ -244,12 +269,12 @@ private fun EnvelopeCard(
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier) {
-        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.sound_envelope), style = MaterialTheme.typography.titleMedium)
             AdsrPreview(
                 adsr = adsr,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth().height(80.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.adsr_attack),
@@ -334,7 +359,8 @@ private fun OscilloscopeCard(
             Text(stringResource(R.string.sound_oscilloscope), style = MaterialTheme.typography.titleMedium)
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
                     .background(Color.Black.copy(alpha = 0.55f)),
             ) {

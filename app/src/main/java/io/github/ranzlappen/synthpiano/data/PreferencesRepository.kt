@@ -24,6 +24,7 @@ private object Keys {
     val RELEASE = floatPreferencesKey("adsr_release")
     val MASTER_AMP = floatPreferencesKey("master_amp")
     val OCTAVE = intPreferencesKey("octave")
+    val KEYBOARD_LEFT_C = intPreferencesKey("keyboard_left_c")
     val KEYMAP_JSON = stringPreferencesKey("keymap_json")
     val CHORD_PADS_JSON = stringPreferencesKey("chord_pads_json")
     val LAST_SCORE_URI = stringPreferencesKey("last_score_uri")
@@ -62,6 +63,10 @@ class PreferencesRepository(private val context: Context) {
     val octave: Flow<Int> =
         context.dataStore.data.map { it[Keys.OCTAVE] ?: 0 }
 
+    /** MIDI note number of the leftmost C the piano keyboard should show. */
+    val keyboardLeftC: Flow<Int> =
+        context.dataStore.data.map { it[Keys.KEYBOARD_LEFT_C] ?: 48 }
+
     val keymapJson: Flow<String?> =
         context.dataStore.data.map { it[Keys.KEYMAP_JSON] }
 
@@ -94,6 +99,8 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setOctave(v: Int) = edit { it[Keys.OCTAVE] = v }
 
+    suspend fun setKeyboardLeftC(midi: Int) = edit { it[Keys.KEYBOARD_LEFT_C] = midi }
+
     suspend fun setKeymapJson(json: String) = edit { it[Keys.KEYMAP_JSON] = json }
 
     suspend fun setChordPadsJson(json: String) = edit { it[Keys.CHORD_PADS_JSON] = json }
@@ -123,7 +130,8 @@ class PreferencesRepository(private val context: Context) {
     @Suppress("unused")
     fun keysSnapshot(): Set<Preferences.Key<*>> = setOf(
         Keys.WAVEFORM, Keys.ATTACK, Keys.DECAY, Keys.SUSTAIN, Keys.RELEASE,
-        Keys.MASTER_AMP, Keys.OCTAVE, Keys.KEYMAP_JSON, Keys.CHORD_PADS_JSON,
-        Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT, Keys.SCALE_KEY,
+        Keys.MASTER_AMP, Keys.OCTAVE, Keys.KEYBOARD_LEFT_C, Keys.KEYMAP_JSON,
+        Keys.CHORD_PADS_JSON, Keys.LAST_SCORE_URI, Keys.TEMPO_BPM,
+        Keys.THEME_ACCENT, Keys.SCALE_KEY,
     )
 }

@@ -17,6 +17,7 @@
     <string name="waveform_square">Square</string>
     <string name="waveform_saw">Saw</string>
     <string name="waveform_triangle">Triangle</string>
+    <string name="waveform_piano">Piano</string>
 
     <string name="adsr_attack">Attack</string>
     <string name="adsr_decay">Decay</string>
@@ -44,6 +45,7 @@
     <string name="chord_assign_title">Assign chord</string>
     <string name="chord_root">Root</string>
     <string name="chord_quality">Quality</string>
+    <string name="chord_octave_offset">Octave shift</string>
 
     <!-- Recording -->
     <string name="record_start">Record</string>

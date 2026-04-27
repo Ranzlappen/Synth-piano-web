@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -30,8 +29,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.data.ChordPad
@@ -101,9 +103,9 @@ private fun PadButton(
     val color = MaterialTheme.colorScheme.primaryContainer
     Box(
         modifier = Modifier
-            .width(96.dp)
-            .height(56.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .width(36.dp)
+            .height(64.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(color)
             .pointerInput(pad) {
                 detectTapGestures(
@@ -120,12 +122,42 @@ private fun PadButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
+        VerticalLabel(
             text = pad.label(),
-            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
+}
+
+/**
+ * Renders [text] rotated -90° so it reads bottom-to-top inside a tall, narrow
+ * pad. The custom [layout] block swaps the measured width and height so the
+ * rotated text reserves the correct bounding box (Compose otherwise measures
+ * the text horizontally and clips). The [rotate] modifier handles the
+ * pixel-level transform.
+ */
+@Composable
+private fun VerticalLabel(
+    text: String,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = color,
+        maxLines = 1,
+        modifier = Modifier
+            .layout { measurable, _ ->
+                val placeable = measurable.measure(Constraints())
+                layout(placeable.height, placeable.width) {
+                    placeable.place(
+                        x = -(placeable.width / 2 - placeable.height / 2),
+                        y = (placeable.width / 2 - placeable.height / 2),
+                    )
+                }
+            }
+            .rotate(-90f),
+    )
 }
 
 @Composable
@@ -136,6 +168,7 @@ private fun ChordEditSheet(
 ) {
     var root by remember { mutableStateOf(initial.rootNote) }
     var quality by remember { mutableStateOf(initial.quality) }
+    var octaveOffset by remember { mutableStateOf(initial.octaveOffset) }
 
     Column(
         modifier = Modifier
@@ -169,6 +202,18 @@ private fun ChordEditSheet(
             }
         }
 
+        Spacer(Modifier.height(4.dp))
+        Text(stringResource(R.string.chord_octave_offset), style = MaterialTheme.typography.labelMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(-1, 0, 1).forEach { off ->
+                FilterChip(
+                    selected = octaveOffset == off,
+                    onClick = { octaveOffset = off },
+                    label = { Text(if (off > 0) "+$off" else "$off") },
+                )
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -179,14 +224,24 @@ private fun ChordEditSheet(
                 Text(stringResource(R.string.action_cancel))
             }
             androidx.compose.material3.Button(
-                onClick = { onSave(ChordPad(rootNote = root, quality = quality)) },
+                onClick = {
+                    onSave(ChordPad(rootNote = root, quality = quality, octaveOffset = octaveOffset))
+                },
             ) { Text(stringResource(R.string.action_save)) }
         }
     }
 }
 
-/** Triggers all notes in a chord through the controller. */
-fun chordNotes(pad: ChordPad): List<Int> {
-    val intervals = intervalsFor(pad.quality)
-    return intervals.map { pad.rootNote + it }
+/**
+ * Resolves the absolute MIDI notes a chord pad should play, anchored to the
+ * keyboard's leftmost-visible C. The pad's stored `rootNote` contributes only
+ * its pitch class; `octaveOffset` shifts the chord up or down from the anchor.
+ *
+ * @param baseC MIDI note of the leftmost C the keyboard is currently showing
+ * (e.g. 48 = C3).
+ */
+fun chordNotes(pad: ChordPad, baseC: Int): List<Int> {
+    val pitchClass = ((pad.rootNote % 12) + 12) % 12
+    val rootMidi = baseC + pad.octaveOffset * 12 + pitchClass
+    return intervalsFor(pad.quality).map { rootMidi + it }
 }

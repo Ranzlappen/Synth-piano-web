@@ -18,8 +18,9 @@ enum class ChordQuality {
 
 @Serializable
 data class ChordPad(
-    val rootNote: Int = 60,            // MIDI note for the chord root
+    val rootNote: Int = 60,            // MIDI note for the chord root (only its pitch class is used at trigger time)
     val quality: ChordQuality = ChordQuality.MAJ,
+    val octaveOffset: Int = 0,         // shift relative to the keyboard's leftmost-visible C
 ) {
     fun label(): String {
         val pitchClass = ((rootNote % 12) + 12) % 12
@@ -43,19 +44,21 @@ fun intervalsFor(q: ChordQuality): List<Int> = when (q) {
 /**
  * Default 11-pad layout, roughly mirroring the Python source's chord row:
  * a sweep of common roots in C major. Users can long-press to remap.
+ * The chord plays at the leftmost C currently visible on the keyboard;
+ * octaveOffset shifts a pad up or down from that anchor.
  */
 fun defaultChordPads(): List<ChordPad> = listOf(
-    ChordPad(60, ChordQuality.MAJ), // C
-    ChordPad(62, ChordQuality.MIN), // Dm
-    ChordPad(64, ChordQuality.MIN), // Em
-    ChordPad(65, ChordQuality.MAJ), // F
-    ChordPad(67, ChordQuality.MAJ), // G
-    ChordPad(67, ChordQuality.SEVEN), // G7
-    ChordPad(69, ChordQuality.MIN), // Am
-    ChordPad(71, ChordQuality.DIM), // Bdim
-    ChordPad(72, ChordQuality.MAJ), // C (octave up)
-    ChordPad(65, ChordQuality.SUS), // Fsus
-    ChordPad(67, ChordQuality.SUS), // Gsus
+    ChordPad(60, ChordQuality.MAJ),                     // C
+    ChordPad(62, ChordQuality.MIN),                     // Dm
+    ChordPad(64, ChordQuality.MIN),                     // Em
+    ChordPad(65, ChordQuality.MAJ),                     // F
+    ChordPad(67, ChordQuality.MAJ),                     // G
+    ChordPad(67, ChordQuality.SEVEN),                   // G7
+    ChordPad(69, ChordQuality.MIN),                     // Am
+    ChordPad(71, ChordQuality.DIM),                     // Bdim
+    ChordPad(60, ChordQuality.MAJ, octaveOffset = 1),   // C (octave up)
+    ChordPad(65, ChordQuality.SUS),                     // Fsus
+    ChordPad(67, ChordQuality.SUS),                     // Gsus
 )
 
 private val padsJson = Json {
