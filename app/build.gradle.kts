@@ -24,8 +24,12 @@ android {
         applicationId = "io.github.ranzlappen.synthpiano"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // Version is injected by CI via -PversionName / -PversionCode from
+        // the git tag (or the next-patch bump on main pushes). Local dev
+        // falls back to the defaults below so ./gradlew assembleDebug works
+        // without any flags.
+        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("versionName") as String?) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

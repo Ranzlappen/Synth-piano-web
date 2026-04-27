@@ -37,7 +37,7 @@ Single-module Android app. Audio runs entirely in C++ on the audio thread; Kotli
 
 | Workflow | Trigger | Scope | Deploys |
 | --- | --- | --- | --- |
-| `ci-android.yml` | push, pull_request, tag `v*` | All paths | Uploads APK + AAB as artifacts; release-signed AAB on tags |
+| `ci-android.yml` | push, pull_request, tag `v*`, workflow_dispatch | All paths | Build artifacts on every run; auto-tags + publishes a GitHub Release on every push to `main` (patch bump from latest tag) and on explicit `v*` tag pushes. `[skip release]` in a commit message skips the auto-release. |
 
 **What fires on a given change:**
 

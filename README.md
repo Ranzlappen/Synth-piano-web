@@ -69,7 +69,7 @@ adb shell am start -n io.github.ranzlappen.synthpiano/.MainActivity
 
 | Workflow | Trigger | Scope | Deploys |
 | --- | --- | --- | --- |
-| `ci-android.yml` | push, pull_request, tag `v*` | All paths | Uploads APK + AAB artifacts; release-signed AAB on tags |
+| `ci-android.yml` | push to `main`, push to `claude/**` / `release/**`, tag `v*`, pull_request | All paths | Build artifacts on every run; **auto-tags + publishes a GitHub Release on every push to `main`** (patch bump from latest tag); explicit `v*` tag pushes use the tag verbatim. Add `[skip release]` to a commit message to skip the auto-release. |
 
 **What fires on a given change:**
 
