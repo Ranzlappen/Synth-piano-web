@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,8 +60,10 @@ fun PianoKeyboard(
     modifier: Modifier = Modifier,
     firstMidiNote: Int = 48,
     totalOctaves: Int = 5,
-    initialVisibleKeys: Float = 14f,
-    initialFirstKey: Float = 0f,
+    visibleKeys: Float,
+    onVisibleKeysChange: (Float) -> Unit,
+    firstWhiteKey: Float,
+    onFirstWhiteKeyChange: (Float) -> Unit,
     heldNotes: Set<Int>,
     onNoteOn: (Int) -> Unit,
     onNoteOff: (Int) -> Unit,
@@ -85,14 +86,6 @@ fun PianoKeyboard(
     // Per-pointer last note for play mode.
     val pointerNotes = remember { mutableMapOf<Long, Int>() }
     var size by remember { mutableStateOf(IntSize.Zero) }
-
-    // Zoom + scroll state (clamped on every update).
-    var visibleKeys by remember { mutableFloatStateOf(initialVisibleKeys.coerceIn(4f, 21f)) }
-    var firstWhiteKey by remember {
-        mutableFloatStateOf(
-            initialFirstKey.coerceIn(0f, (totalWhiteKeys - visibleKeys).coerceAtLeast(0f))
-        )
-    }
 
     fun whiteIndexToMidi(i: Int): Int {
         val octave = i / 7
@@ -146,12 +139,17 @@ fun PianoKeyboard(
                             // calculateZoom > 1 => fingers spread apart => more keys per finger-span
                             // means we want FEWER keys visible (zoom in). Hence dividing.
                             val newVisible = (visibleKeys / zoom).coerceIn(4f, 21f)
-                            visibleKeys = newVisible
+                            if (newVisible != visibleKeys) {
+                                onVisibleKeysChange(newVisible)
+                            }
                         }
                         if (pan.x != 0f && size.width > 0) {
                             val keyWPx = size.width / visibleKeys
-                            firstWhiteKey = (firstWhiteKey - pan.x / keyWPx)
+                            val newFirst = (firstWhiteKey - pan.x / keyWPx)
                                 .coerceIn(0f, (totalWhiteKeys - visibleKeys).coerceAtLeast(0f))
+                            if (newFirst != firstWhiteKey) {
+                                onFirstWhiteKeyChange(newFirst)
+                            }
                         }
                         event.changes.forEach { it.consume() }
                     } else {

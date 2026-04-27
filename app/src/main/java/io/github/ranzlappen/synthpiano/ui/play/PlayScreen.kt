@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +47,7 @@ import io.github.ranzlappen.synthpiano.data.defaultChordPads
 import io.github.ranzlappen.synthpiano.data.parseChordPadsJson
 import io.github.ranzlappen.synthpiano.data.toJson
 import io.github.ranzlappen.synthpiano.ui.Tab
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -63,6 +65,22 @@ fun PlayScreen(
     val masterAmp by synth.masterAmp.collectAsState()
     val padsJson by prefs.chordPadsJson.collectAsState(initial = null)
     val octave by prefs.octave.collectAsState(initial = 0)
+
+    // Keyboard zoom + scroll: live state, hoisted here so it's controlled
+    // (PianoKeyboard is fully driven). Seeded once from DataStore on first
+    // launch, then user gestures drive it and we save back to DataStore.
+    var visibleKeys by remember { mutableFloatStateOf(14f) }
+    var firstWhiteKey by remember { mutableFloatStateOf(0f) }
+    var seededFromPrefs by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!seededFromPrefs) {
+            val savedV = prefs.keyboardVisibleKeys.first()
+            val savedF = prefs.keyboardFirstKey.first()
+            visibleKeys = savedV.coerceIn(4f, 21f)
+            firstWhiteKey = savedF.coerceAtLeast(0f)
+            seededFromPrefs = true
+        }
+    }
 
     val pads = remember(padsJson) {
         padsJson?.let { runCatching { parseChordPadsJson(it) }.getOrNull() }
@@ -179,6 +197,16 @@ fun PlayScreen(
                 .weight(1f)
                 .heightIn(min = 120.dp),
             firstMidiNote = 48 + octave * 12,
+            visibleKeys = visibleKeys,
+            onVisibleKeysChange = { v ->
+                visibleKeys = v
+                scope.launch { prefs.setKeyboardVisibleKeys(v) }
+            },
+            firstWhiteKey = firstWhiteKey,
+            onFirstWhiteKeyChange = { v ->
+                firstWhiteKey = v
+                scope.launch { prefs.setKeyboardFirstKey(v) }
+            },
             heldNotes = held,
             onNoteOn = { synth.noteOn(it) },
             onNoteOff = { synth.noteOff(it) },
