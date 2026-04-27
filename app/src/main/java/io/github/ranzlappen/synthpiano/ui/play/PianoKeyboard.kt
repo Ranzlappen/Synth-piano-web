@@ -1,8 +1,11 @@
 package io.github.ranzlappen.synthpiano.ui.play
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,7 +26,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.data.Scale
@@ -37,8 +42,60 @@ import io.github.ranzlappen.synthpiano.ui.theme.SourceMidi
 import io.github.ranzlappen.synthpiano.ui.theme.SourceScore
 import io.github.ranzlappen.synthpiano.ui.theme.SourceTouch
 
+/** Lowest white-key MIDI note rendered (A0). */
+const val PIANO_FIRST_MIDI: Int = 21
+
+/** Total white keys A0..C8 inclusive. */
+const val PIANO_WHITE_KEY_COUNT: Int = 52
+
+/** Width of one white key, in dp. The full keyboard is this × 52 wide. */
+val PIANO_WHITE_KEY_DP: Dp = 56.dp
+
+private val WHITE_INDEX_TO_MIDI: IntArray = IntArray(PIANO_WHITE_KEY_COUNT) { i ->
+    when (i) {
+        0 -> PIANO_FIRST_MIDI
+        1 -> PIANO_FIRST_MIDI + 2
+        else -> {
+            val rel = i - 2
+            val whiteSemitones = intArrayOf(0, 2, 4, 5, 7, 9, 11)
+            (PIANO_FIRST_MIDI + 3) + (rel / 7) * 12 + whiteSemitones[rel % 7]
+        }
+    }
+}
+
+/**
+ * MIDI note of the leftmost C currently visible in the scrollable keyboard.
+ * Used by chord pads to anchor the chord to "what you can see."
+ *
+ * @param scrollPx Current scroll offset in pixels.
+ * @param whiteKeyPx Width of one white key in pixels (density-adjusted).
+ */
+fun leftmostVisibleC(scrollPx: Int, whiteKeyPx: Float): Int {
+    if (whiteKeyPx <= 0f) return 48
+    val firstVisibleWhiteIdx =
+        (scrollPx / whiteKeyPx).toInt().coerceIn(0, PIANO_WHITE_KEY_COUNT - 1)
+    for (i in firstVisibleWhiteIdx until PIANO_WHITE_KEY_COUNT) {
+        val midi = WHITE_INDEX_TO_MIDI[i]
+        if (midi % 12 == 0) return midi
+    }
+    return WHITE_INDEX_TO_MIDI[firstVisibleWhiteIdx].let { it - (it % 12) }
+}
+
+/**
+ * Pixel scroll offset that aligns the keyboard so the given C note is the
+ * leftmost visible white key. Used to restore the persisted scroll position.
+ */
+fun scrollPxForC(midiC: Int, whiteKeyPx: Float): Int {
+    if (whiteKeyPx <= 0f) return 0
+    val idx = WHITE_INDEX_TO_MIDI.indexOfFirst { it == midiC }
+    if (idx < 0) return 0
+    return (idx * whiteKeyPx).toInt()
+}
+
 /**
  * Multi-touch piano keyboard with per-source key coloring and scale dim.
+ * Renders a fixed-pitch, full-piano-range Canvas wrapped in a horizontal
+ * scroll container so the user can pan from A0 to C8.
  *
  * Each pointer is mapped to one MIDI note; sliding between keys releases
  * the previous note and triggers the new one. Pressed keys color according
@@ -47,8 +104,8 @@ import io.github.ranzlappen.synthpiano.ui.theme.SourceTouch
  * [NoteSource.HW_KEYBOARD] uses a mint accent. When [scale] is set, keys
  * outside the scale's pitch classes render dimmed.
  *
- * @param firstMidiNote MIDI note of the leftmost white key (e.g. C3 = 48).
- * @param whiteKeyCount Number of white keys to render.
+ * @param scrollState hoisted scroll state so the parent can derive the
+ * leftmost visible C and persist scroll position.
  * @param heldBySource Map of pressed MIDI note → source for coloring.
  * @param scale Scale used to dim out-of-scale keys; [Scale.NONE] disables.
  * @param onNoteOn / onNoteOff Callbacks invoked from the gesture handler.
@@ -56,8 +113,7 @@ import io.github.ranzlappen.synthpiano.ui.theme.SourceTouch
 @Composable
 fun PianoKeyboard(
     modifier: Modifier = Modifier,
-    firstMidiNote: Int = 48,
-    whiteKeyCount: Int = 14,
+    scrollState: ScrollState,
     heldBySource: Map<Int, NoteSource>,
     scale: Scale = Scale.NONE,
     onNoteOn: (Int) -> Unit,
@@ -70,31 +126,55 @@ fun PianoKeyboard(
     val pointerNotes = remember { mutableMapOf<Long, Int>() }
     var size by remember { mutableStateOf(IntSize.Zero) }
 
+    val firstMidiNote = PIANO_FIRST_MIDI
+    val whiteKeyCount = PIANO_WHITE_KEY_COUNT
+
     fun whiteKeyIndexFromX(x: Float, w: Float): Int {
         val keyW = w / whiteKeyCount
         val idx = (x / keyW).toInt().coerceIn(0, whiteKeyCount - 1)
         return idx
     }
 
-    fun whiteIndexToMidi(i: Int): Int {
-        val octave = i / 7
-        val degree = i % 7
-        return firstMidiNote + octave * 12 + whiteKeySemitones[degree]
+    // White keys A0..C8: A,B then 7 octaves of C..B then C8. We handle this
+    // by indexing relative to the first C (C1, white index 2). Index 0 = A0,
+    // index 1 = B0, index 2 = C1, index 9 = C2, ...
+    fun whiteIndexToMidi(i: Int): Int = when (i) {
+        0 -> firstMidiNote          // A0
+        1 -> firstMidiNote + 2      // B0
+        else -> {
+            val rel = i - 2          // 0-based from C1
+            val octave = rel / 7
+            val degree = rel % 7
+            (firstMidiNote + 3) + octave * 12 + whiteKeySemitones[degree]  // C1 = 24
+        }
     }
 
+    // Black-key positions per octave-of-Cs (semitone offset from a C, white-key
+    // x-offset from that C). A0..B0 region has only one black key (A#0).
     val blackKeyOffsetsInOctave = listOf(
-        0 to 0.65f, 2 to 1.65f, 5 to 3.65f, 7 to 4.65f, 9 to 5.65f,
+        0 to 0.65f,  // C# at C+0.65
+        2 to 1.65f,  // D# at D+0.65
+        5 to 3.65f,  // F# at F+0.65
+        7 to 4.65f,  // G# at G+0.65
+        9 to 5.65f,  // A# at A+0.65
     )
 
     fun midiAt(x: Float, y: Float, w: Float, h: Float): Int {
         val keyW = w / whiteKeyCount
         if (y < h * 0.60f) {
+            // A#0 sits between A0 (index 0) and B0 (index 1) at offset 0.65.
+            val aSharp0X = 0.65f * keyW
+            val bw = keyW * 0.7f
+            if (x >= aSharp0X && x < aSharp0X + bw) return firstMidiNote + 1
+
+            // C1 starts at white index 2; iterate per octave-of-C.
+            val octavesOfC = (whiteKeyCount - 2 + 6) / 7
             for ((semi, off) in blackKeyOffsetsInOctave) {
-                for (oct in 0..(whiteKeyCount / 7)) {
-                    val cx = (oct * 7 + off) * keyW
-                    val bw = keyW * 0.7f
-                    if (x >= cx && x < cx + bw && (oct * 7 + off + 1) <= whiteKeyCount) {
-                        return firstMidiNote + oct * 12 + semi + 1
+                for (oct in 0 until octavesOfC) {
+                    val cWhiteIndex = 2 + oct * 7
+                    val cx = (cWhiteIndex + off) * keyW
+                    if (x >= cx && x < cx + bw && (cWhiteIndex + off + 1) <= whiteKeyCount) {
+                        return (firstMidiNote + 3) + oct * 12 + semi + 1
                     }
                 }
             }
@@ -102,85 +182,113 @@ fun PianoKeyboard(
         return whiteIndexToMidi(whiteKeyIndexFromX(x, w))
     }
 
-    Box(modifier = modifier
-        .onSizeChanged { size = it }
-        .pointerInput(firstMidiNote, whiteKeyCount) {
-            keyboardGestureLoop(
-                onDown = { id, pos ->
-                    val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
-                    pointerNotes[id]?.let { onNoteOff(it) }
-                    pointerNotes[id] = midi
-                    onNoteOn(midi)
-                },
-                onMove = { id, pos ->
-                    val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
-                    val prev = pointerNotes[id]
-                    if (prev != midi) {
-                        prev?.let { onNoteOff(it) }
-                        pointerNotes[id] = midi
-                        onNoteOn(midi)
-                    }
-                },
-                onUp = { id ->
-                    pointerNotes.remove(id)?.let { onNoteOff(it) }
-                },
-            )
-        }
+    val totalWidthDp = PIANO_WHITE_KEY_DP * whiteKeyCount
+
+    Box(
+        modifier = modifier
+            .horizontalScroll(scrollState),
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = this.size.width
-            val h = this.size.height
-            val keyW = w / whiteKeyCount
-
-            // White keys.
-            for (i in 0 until whiteKeyCount) {
-                val midi = whiteIndexToMidi(i)
-                val pressedColor = heldBySource[midi]?.let(::sourceColor)
-                val inScale = scale.contains(midi)
-                val baseFill = when {
-                    pressedColor != null -> pressedColor
-                    !inScale -> KeyDimmed
-                    else -> KeyWhite
-                }
-                drawRect(color = baseFill, topLeft = Offset(i * keyW, 0f), size = Size(keyW, h))
-                drawRect(
-                    color = KeyLabel.copy(alpha = 0.35f),
-                    topLeft = Offset(i * keyW, 0f),
-                    size = Size(keyW, h),
-                    style = Stroke(width = 1f),
-                )
-                // Octave label under each C.
-                if (i % 7 == 0) {
-                    val label = "C${(midi / 12) - 1}"
-                    drawText(
-                        textMeasurer = measurer,
-                        text = AnnotatedString(label),
-                        topLeft = Offset(i * keyW + 4f, h - with(density) { 18.sp.toPx() }),
-                        style = TextStyle(color = KeyLabel, fontSize = 11.sp),
+        Box(
+            modifier = Modifier
+                .width(totalWidthDp)
+                .fillMaxHeight()
+                .onSizeChanged { size = it }
+                .pointerInput(Unit) {
+                    keyboardGestureLoop(
+                        onDown = { id, pos ->
+                            val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
+                            pointerNotes[id]?.let { onNoteOff(it) }
+                            pointerNotes[id] = midi
+                            onNoteOn(midi)
+                        },
+                        onMove = { id, pos ->
+                            val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
+                            val prev = pointerNotes[id]
+                            if (prev != midi) {
+                                prev?.let { onNoteOff(it) }
+                                pointerNotes[id] = midi
+                                onNoteOn(midi)
+                            }
+                        },
+                        onUp = { id ->
+                            pointerNotes.remove(id)?.let { onNoteOff(it) }
+                        },
                     )
-                }
-            }
+                },
+        ) {
+            Canvas(modifier = Modifier.fillMaxHeight().width(totalWidthDp)) {
+                val w = this.size.width
+                val h = this.size.height
+                val keyW = w / whiteKeyCount
 
-            // Black keys (drawn last so they overlay).
-            val blackH = h * 0.60f
-            val blackW = keyW * 0.7f
-            for ((semi, off) in blackKeyOffsetsInOctave) {
-                for (oct in 0..(whiteKeyCount / 7)) {
-                    val xPos = (oct * 7 + off) * keyW
-                    if ((oct * 7 + off + 1) > whiteKeyCount) continue
-                    val midi = firstMidiNote + oct * 12 + semi + 1
+                // White keys.
+                for (i in 0 until whiteKeyCount) {
+                    val midi = whiteIndexToMidi(i)
                     val pressedColor = heldBySource[midi]?.let(::sourceColor)
                     val inScale = scale.contains(midi)
+                    val baseFill = when {
+                        pressedColor != null -> pressedColor
+                        !inScale -> KeyDimmed
+                        else -> KeyWhite
+                    }
+                    drawRect(color = baseFill, topLeft = Offset(i * keyW, 0f), size = Size(keyW, h))
+                    drawRect(
+                        color = KeyLabel.copy(alpha = 0.35f),
+                        topLeft = Offset(i * keyW, 0f),
+                        size = Size(keyW, h),
+                        style = Stroke(width = 1f),
+                    )
+                    // Octave label under each C.
+                    if ((midi % 12) == 0) {
+                        val label = "C${(midi / 12) - 1}"
+                        drawText(
+                            textMeasurer = measurer,
+                            text = AnnotatedString(label),
+                            topLeft = Offset(i * keyW + 4f, h - with(density) { 18.sp.toPx() }),
+                            style = TextStyle(color = KeyLabel, fontSize = 11.sp),
+                        )
+                    }
+                }
+
+                // Black keys (drawn last so they overlay).
+                val blackH = h * 0.60f
+                val blackW = keyW * 0.7f
+
+                // A#0 — special case before C1.
+                run {
+                    val aSharp = firstMidiNote + 1
+                    val xPos = 0.65f * keyW
+                    val pressedColor = heldBySource[aSharp]?.let(::sourceColor)
+                    val inScale = scale.contains(aSharp)
                     val fill = when {
                         pressedColor != null -> pressedColor
                         !inScale -> KeyDimmedBlack
                         else -> KeyBlack
                     }
-                    drawRect(
-                        color = fill,
-                        topLeft = Offset(xPos, 0f),
-                        size = Size(blackW, blackH),
-                    )
+                    drawRect(color = fill, topLeft = Offset(xPos, 0f), size = Size(blackW, blackH))
+                }
+
+                val octavesOfC = (whiteKeyCount - 2 + 6) / 7
+                for ((semi, off) in blackKeyOffsetsInOctave) {
+                    for (oct in 0 until octavesOfC) {
+                        val cWhiteIndex = 2 + oct * 7
+                        if ((cWhiteIndex + off + 1) > whiteKeyCount) continue
+                        val xPos = (cWhiteIndex + off) * keyW
+                        val midi = (firstMidiNote + 3) + oct * 12 + semi + 1
+                        if (midi > 108) continue
+                        val pressedColor = heldBySource[midi]?.let(::sourceColor)
+                        val inScale = scale.contains(midi)
+                        val fill = when {
+                            pressedColor != null -> pressedColor
+                            !inScale -> KeyDimmedBlack
+                            else -> KeyBlack
+                        }
+                        drawRect(
+                            color = fill,
+                            topLeft = Offset(xPos, 0f),
+                            size = Size(blackW, blackH),
+                        )
+                    }
                 }
             }
         }

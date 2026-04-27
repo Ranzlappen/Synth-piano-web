@@ -8,12 +8,14 @@ enum class Waveform {
     SINE,
     SQUARE,
     SAW,
-    TRIANGLE;
+    TRIANGLE,
+    PIANO;
 
     fun displayName(): String = when (this) {
         SINE -> "Sine"
         SQUARE -> "Square"
         SAW -> "Saw"
         TRIANGLE -> "Triangle"
+        PIANO -> "Piano"
     }
 }
