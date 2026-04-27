@@ -17,10 +17,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
@@ -30,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,15 +41,12 @@ import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.defaultChordPads
 import io.github.ranzlappen.synthpiano.data.parseChordPadsJson
 import io.github.ranzlappen.synthpiano.data.toJson
-import io.github.ranzlappen.synthpiano.ui.Tab
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
 fun PlayScreen(
     synth: SynthController,
     prefs: PreferencesRepository,
-    onNavigate: (Tab) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -66,29 +58,6 @@ fun PlayScreen(
     val padsJson by prefs.chordPadsJson.collectAsState(initial = null)
     val octave by prefs.octave.collectAsState(initial = 0)
 
-    // Keyboard zoom + scroll: live state, hoisted here so it's controlled
-    // (PianoKeyboard is fully driven). Seeded once from DataStore on first
-    // launch, then user gestures drive it and we save back to DataStore.
-    var visibleKeys by remember { mutableFloatStateOf(14f) }
-    var firstWhiteKey by remember { mutableFloatStateOf(0f) }
-    var seededFromPrefs by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (!seededFromPrefs) {
-            // DataStore reads are normally fast and never throw, but on a
-            // device where the prefs file is unreadable for any reason we
-            // must not crash the activity.
-            try {
-                val savedV = prefs.keyboardVisibleKeys.first()
-                val savedF = prefs.keyboardFirstKey.first()
-                visibleKeys = savedV.coerceIn(4f, 21f)
-                firstWhiteKey = savedF.coerceAtLeast(0f)
-            } catch (t: Throwable) {
-                // Leave defaults in place.
-            }
-            seededFromPrefs = true
-        }
-    }
-
     val pads = remember(padsJson) {
         padsJson?.let { runCatching { parseChordPadsJson(it) }.getOrNull() }
             ?: defaultChordPads()
@@ -97,8 +66,6 @@ fun PlayScreen(
     val recorder = remember { WavRecorder(synth) }
     var isRecording by remember { mutableStateOf(false) }
     var lastRecordingPath by remember { mutableStateOf<String?>(null) }
-    var showSynthSheet by remember { mutableStateOf(false) }
-    var showOverflow by remember { mutableStateOf(false) }
 
     // Persist live settings as the user adjusts them. Only fires on change.
     LaunchedEffect(waveform) { prefs.setWaveform(waveform) }
@@ -106,16 +73,16 @@ fun PlayScreen(
     LaunchedEffect(masterAmp) { prefs.setMasterAmp(masterAmp) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar: octave, record, share, synth params, overflow
+        // Top bar: octave, record, share
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                "Oct $octave",
+                "Octave $octave",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
@@ -147,43 +114,22 @@ fun PlayScreen(
                     Icon(Icons.Filled.Share, contentDescription = "Share recording")
                 }
             }
-            IconButton(onClick = { showSynthSheet = true }) {
-                Icon(Icons.Filled.Tune, contentDescription = "Synth parameters")
-            }
-            Box {
-                IconButton(onClick = { showOverflow = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "More")
-                }
-                DropdownMenu(
-                    expanded = showOverflow,
-                    onDismissRequest = { showOverflow = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Score") },
-                        onClick = { showOverflow = false; onNavigate(Tab.Score) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Settings") },
-                        onClick = { showOverflow = false; onNavigate(Tab.Settings) },
-                    )
-                }
-            }
         }
 
-        if (showSynthSheet) {
-            SynthParamsModal(
+        // Synth parameter bar
+        Box(modifier = Modifier.fillMaxWidth()) {
+            SynthControlsBar(
                 waveform = waveform,
                 onWaveform = synth::setWaveform,
                 adsr = adsr,
                 onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec) },
                 masterAmp = masterAmp,
                 onMasterAmp = synth::setMasterAmp,
-                onDismiss = { showSynthSheet = false },
             )
         }
 
         // Chord pads (above keyboard)
-        Box(modifier = Modifier.fillMaxWidth().height(48.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
             ChordPadsRow(
                 pads = pads,
                 onPadDown = { pad -> chordNotes(pad).forEach { n -> synth.noteOn(n + octave * 12) } },
@@ -204,16 +150,7 @@ fun PlayScreen(
                 .weight(1f)
                 .heightIn(min = 120.dp),
             firstMidiNote = 48 + octave * 12,
-            visibleKeys = visibleKeys,
-            onVisibleKeysChange = { v ->
-                visibleKeys = v
-                scope.launch { prefs.setKeyboardVisibleKeys(v) }
-            },
-            firstWhiteKey = firstWhiteKey,
-            onFirstWhiteKeyChange = { v ->
-                firstWhiteKey = v
-                scope.launch { prefs.setKeyboardFirstKey(v) }
-            },
+            whiteKeyCount = 14,
             heldNotes = held,
             onNoteOn = { synth.noteOn(it) },
             onNoteOff = { synth.noteOff(it) },

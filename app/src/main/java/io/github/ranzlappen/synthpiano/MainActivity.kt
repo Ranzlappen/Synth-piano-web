@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
@@ -12,7 +11,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.ranzlappen.synthpiano.audio.SynthController
-import io.github.ranzlappen.synthpiano.crash.CrashReporter
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.SynthAppRoot
@@ -30,24 +28,6 @@ class MainActivity : ComponentActivity() {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        // If the app crashed on a previous launch, fire the share sheet for
-        // the report immediately -- BEFORE Compose runs -- so the user can
-        // surface the trace even if the underlying composition crash is
-        // still happening on this launch. We delete the file after firing
-        // the intent to avoid prompting on every subsequent launch; if the
-        // crash recurs, a fresh file will be written.
-        if (CrashReporter.hasReport(this)) {
-            CrashReporter.shareIntent(this)?.let { intent ->
-                Toast.makeText(
-                    this,
-                    "Crash on previous launch — sharing report",
-                    Toast.LENGTH_LONG,
-                ).show()
-                startActivity(Intent.createChooser(intent, "Share crash report"))
-            }
-            CrashReporter.clear(this)
-        }
 
         val app = SynthApp.get()
         synth = app.synth

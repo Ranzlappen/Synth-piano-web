@@ -28,8 +28,6 @@ private object Keys {
     val CHORD_PADS_JSON = stringPreferencesKey("chord_pads_json")
     val LAST_SCORE_URI = stringPreferencesKey("last_score_uri")
     val TEMPO_BPM = intPreferencesKey("tempo_bpm")
-    val KB_VISIBLE_KEYS = floatPreferencesKey("kb_visible_keys")
-    val KB_FIRST_KEY = floatPreferencesKey("kb_first_key")
 }
 
 /**
@@ -74,12 +72,6 @@ class PreferencesRepository(private val context: Context) {
     val tempoBpm: Flow<Int> =
         context.dataStore.data.map { it[Keys.TEMPO_BPM] ?: 120 }
 
-    val keyboardVisibleKeys: Flow<Float> =
-        context.dataStore.data.map { it[Keys.KB_VISIBLE_KEYS] ?: 14f }
-
-    val keyboardFirstKey: Flow<Float> =
-        context.dataStore.data.map { it[Keys.KB_FIRST_KEY] ?: 0f }
-
     suspend fun setWaveform(w: Waveform) =
         edit { it[Keys.WAVEFORM] = w.name }
 
@@ -104,12 +96,6 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setTempoBpm(bpm: Int) = edit { it[Keys.TEMPO_BPM] = bpm.coerceIn(20, 300) }
 
-    suspend fun setKeyboardVisibleKeys(v: Float) =
-        edit { it[Keys.KB_VISIBLE_KEYS] = v.coerceIn(4f, 21f) }
-
-    suspend fun setKeyboardFirstKey(v: Float) =
-        edit { it[Keys.KB_FIRST_KEY] = v.coerceAtLeast(0f) }
-
     /** Synchronous snapshot of the keymap JSON for non-suspending init paths. */
     fun blockingKeymapJson(): String? = runBlocking { keymapJson.first() }
 
@@ -127,6 +113,5 @@ class PreferencesRepository(private val context: Context) {
         Keys.WAVEFORM, Keys.ATTACK, Keys.DECAY, Keys.SUSTAIN, Keys.RELEASE,
         Keys.MASTER_AMP, Keys.OCTAVE, Keys.KEYMAP_JSON, Keys.CHORD_PADS_JSON,
         Keys.LAST_SCORE_URI, Keys.TEMPO_BPM,
-        Keys.KB_VISIBLE_KEYS, Keys.KB_FIRST_KEY,
     )
 }

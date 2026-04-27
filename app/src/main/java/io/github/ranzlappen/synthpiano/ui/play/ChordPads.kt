@@ -46,8 +46,8 @@ fun ChordPadsRow(
     Row(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         pads.forEachIndexed { index, pad ->
             PadButton(

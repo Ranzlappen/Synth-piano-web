@@ -10,71 +10,39 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.audio.SynthController
-import io.github.ranzlappen.synthpiano.crash.CrashReporter
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     synth: SynthController,
     prefs: PreferencesRepository,
     midi: MidiManager,
-    onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val ctx = LocalContext.current
     val devices by midi.connectedDeviceNames.collectAsState()
-    var hasCrash by remember { mutableStateOf(CrashReporter.hasReport(ctx)) }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to play",
-                        )
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         // Audio section
         SettingsCard(title = "Audio") {
             val rate = synth.engine().sampleRate()
@@ -117,34 +85,12 @@ fun SettingsScreen(
             }
         }
 
-        // Crash report (only when one exists from a prior launch)
-        if (hasCrash) {
-            SettingsCard(title = "Crash report available") {
-                Text(
-                    "The app crashed on a previous launch. Tap Share to send the trace.",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = {
-                        CrashReporter.shareIntent(ctx)?.let { intent ->
-                            ctx.startActivity(android.content.Intent.createChooser(intent, "Share crash report"))
-                        }
-                    }) { Text("Share") }
-                    TextButton(onClick = {
-                        CrashReporter.clear(ctx)
-                        hasCrash = false
-                    }) { Text("Clear") }
-                }
-            }
-        }
-
         // About
         SettingsCard(title = "About") {
             Text("Synth Piano (Android)", style = MaterialTheme.typography.titleMedium)
             Text("Port of Ranzlappen/synth-piano (Python)", style = MaterialTheme.typography.bodyLarge)
             Text("Audio engine: Google Oboe", style = MaterialTheme.typography.bodyLarge)
             Text("MIT License", style = MaterialTheme.typography.bodyLarge)
-        }
         }
     }
 }
