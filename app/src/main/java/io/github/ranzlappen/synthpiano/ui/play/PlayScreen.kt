@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
@@ -66,6 +67,7 @@ fun PlayScreen(
     val recorder = remember { WavRecorder(synth) }
     var isRecording by remember { mutableStateOf(false) }
     var lastRecordingPath by remember { mutableStateOf<String?>(null) }
+    var showSynthSheet by remember { mutableStateOf(false) }
 
     // Persist live settings as the user adjusts them. Only fires on change.
     LaunchedEffect(waveform) { prefs.setWaveform(waveform) }
@@ -114,6 +116,21 @@ fun PlayScreen(
                     Icon(Icons.Filled.Share, contentDescription = "Share recording")
                 }
             }
+            IconButton(onClick = { showSynthSheet = true }) {
+                Icon(Icons.Filled.Tune, contentDescription = "Synth parameters")
+            }
+        }
+
+        if (showSynthSheet) {
+            SynthParamsModal(
+                waveform = waveform,
+                onWaveform = synth::setWaveform,
+                adsr = adsr,
+                onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec) },
+                masterAmp = masterAmp,
+                onMasterAmp = synth::setMasterAmp,
+                onDismiss = { showSynthSheet = false },
+            )
         }
 
         // Synth parameter bar
