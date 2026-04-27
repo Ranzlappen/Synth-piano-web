@@ -46,7 +46,7 @@ import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.components.AppGradientBackground
 import io.github.ranzlappen.synthpiano.ui.components.HeaderStrip
 import io.github.ranzlappen.synthpiano.ui.play.PerformTab
-import io.github.ranzlappen.synthpiano.ui.score.ScoreScreen
+import io.github.ranzlappen.synthpiano.ui.score.ComposerTab
 import io.github.ranzlappen.synthpiano.ui.settings.SettingsScreen
 import io.github.ranzlappen.synthpiano.ui.sound.SoundTab
 
@@ -119,7 +119,7 @@ fun SynthAppRoot(
                     when (tab) {
                         Tab.Perform -> PerformTab(synth = synth, prefs = prefs)
                         Tab.Sound -> SoundTab(synth = synth, prefs = prefs)
-                        Tab.Compose -> ScoreScreen(synth = synth, prefs = prefs)
+                        Tab.Compose -> ComposerTab(synth = synth, prefs = prefs)
                         Tab.Setup -> SettingsScreen(synth = synth, prefs = prefs, midi = midi)
                     }
                 }
