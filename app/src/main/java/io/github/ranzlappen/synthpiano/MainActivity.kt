@@ -6,6 +6,8 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -15,6 +17,7 @@ import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.SynthAppRoot
 import io.github.ranzlappen.synthpiano.ui.theme.SynthPianoTheme
+import io.github.ranzlappen.synthpiano.ui.theme.ThemeAccent
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -35,11 +38,14 @@ class MainActivity : ComponentActivity() {
         hwKeys = HwKeyboardMapper(synth, app.prefs)
 
         setContent {
-            SynthPianoTheme {
+            val accentName by app.prefs.themeAccent.collectAsState(initial = "AURORA")
+            val accent = ThemeAccent.fromName(accentName)
+            SynthPianoTheme(accent = accent) {
                 SynthAppRoot(
                     synth = synth,
                     prefs = app.prefs,
                     midi = midi,
+                    hwKeys = hwKeys,
                 )
             }
         }
@@ -54,8 +60,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Honor the USB-MIDI launch intent if the activity was started by
-        // a USB attach. MidiManager's onUsbDeviceAttached is idempotent.
         intent?.let(::handleIntent)
     }
 
@@ -72,8 +76,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Don't fully stop the engine on a brief pause; it incurs Oboe
-        // open cost on resume. allNotesOff is enough.
         synth.allNotesOff()
     }
 
