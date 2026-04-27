@@ -83,7 +83,11 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        return hwKeys.dispatch(event) || super.dispatchKeyEvent(event)
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        return hwKeys.dispatch(event) || super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        return hwKeys.dispatch(event) || super.onKeyUp(keyCode, event)
     }
 }
