@@ -61,7 +61,10 @@ fun Oscilloscope(
     }
 
     Canvas(modifier = modifier) {
-        // dependency on `version` so canvas redraws on new samples.
+        // Read `version` so Compose treats this draw as dependent on it;
+        // FloatArray contents alone aren't observable, so we bump version
+        // each time we refill `display` and rely on recomposition to
+        // re-run this draw lambda with the latest samples.
         @Suppress("UNUSED_EXPRESSION") version
         val w = size.width
         val h = size.height
