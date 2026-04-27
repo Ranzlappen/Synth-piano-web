@@ -74,10 +74,17 @@ fun PlayScreen(
     var seededFromPrefs by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (!seededFromPrefs) {
-            val savedV = prefs.keyboardVisibleKeys.first()
-            val savedF = prefs.keyboardFirstKey.first()
-            visibleKeys = savedV.coerceIn(4f, 21f)
-            firstWhiteKey = savedF.coerceAtLeast(0f)
+            // DataStore reads are normally fast and never throw, but on a
+            // device where the prefs file is unreadable for any reason we
+            // must not crash the activity.
+            try {
+                val savedV = prefs.keyboardVisibleKeys.first()
+                val savedF = prefs.keyboardFirstKey.first()
+                visibleKeys = savedV.coerceIn(4f, 21f)
+                firstWhiteKey = savedF.coerceAtLeast(0f)
+            } catch (t: Throwable) {
+                // Leave defaults in place.
+            }
             seededFromPrefs = true
         }
     }

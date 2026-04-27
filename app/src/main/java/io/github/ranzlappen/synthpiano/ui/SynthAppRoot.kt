@@ -1,7 +1,10 @@
 package io.github.ranzlappen.synthpiano.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +30,14 @@ fun SynthAppRoot(
     val onNavigate: (Tab) -> Unit = { tab = it }
     val navigateBack: () -> Unit = { tab = Tab.Play }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Activity sets decorFitsSystemWindows(false) so the window draws edge
+    // to edge. Apply the system-bars inset here since we no longer use a
+    // Scaffold (which would have done it automatically).
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars),
+    ) {
         when (tab) {
             Tab.Play -> PlayScreen(
                 synth = synth,
