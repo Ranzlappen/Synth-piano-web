@@ -64,6 +64,17 @@ public:
         recording_.store(on, std::memory_order_release);
     }
 
+    // Enable/disable the oscilloscope tap. UI flips this on while the
+    // SOUND tab is foregrounded so the audio thread isn't writing to a
+    // ring nobody reads when it isn't visible.
+    void setScopeEnabled(bool on) {
+        scopeEnabled_.store(on, std::memory_order_release);
+    }
+
+    // Drain mono master-mix samples for the oscilloscope into [out],
+    // up to maxFrames samples. Returns frames written. Lock-free SPSC.
+    int32_t drainScopeFrames(float* out, int32_t maxFrames);
+
     // oboe::AudioStreamCallback
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream,
                                           void* audioData,
@@ -88,6 +99,16 @@ private:
     std::atomic<int32_t> recWriteIdx_{0};
     std::atomic<int32_t> recReadIdx_{0};
     std::atomic<bool> recording_{false};
+
+    // Oscilloscope SPSC ring. Mono master-mix snapshot, sized to ~85ms
+    // at 48kHz so the display can hold a stable waveform window. Populated
+    // by the audio thread when scopeEnabled_ is true.
+    static constexpr int32_t kScopeRingFrames = 1 << 12; // 4096 mono frames
+    static constexpr int32_t kScopeRingMask = kScopeRingFrames - 1;
+    std::array<float, kScopeRingFrames> scopeRing_{};
+    std::atomic<int32_t> scopeWriteIdx_{0};
+    std::atomic<int32_t> scopeReadIdx_{0};
+    std::atomic<bool> scopeEnabled_{false};
 
     bool tryPost(const NoteEvent& e);
 

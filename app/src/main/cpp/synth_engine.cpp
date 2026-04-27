@@ -191,6 +191,10 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
     int32_t recWrite = recWriteIdx_.load(std::memory_order_relaxed);
     const int32_t recRead = recReadIdx_.load(std::memory_order_acquire);
 
+    const bool scopeOn = scopeEnabled_.load(std::memory_order_acquire);
+    int32_t scopeWrite = scopeWriteIdx_.load(std::memory_order_relaxed);
+    const int32_t scopeRead = scopeReadIdx_.load(std::memory_order_acquire);
+
     for (int32_t i = 0; i < numFrames; ++i) {
         float s = scratch[i] * amp;
         // Soft clip to avoid digital harshness if voices stack.
@@ -214,10 +218,21 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
                 recWrite = nextWrite;
             }
         }
+
+        if (scopeOn) {
+            const int32_t nextScope = (scopeWrite + 1) & kScopeRingMask;
+            if (nextScope != (scopeRead & kScopeRingMask)) {
+                scopeRing_[scopeWrite & kScopeRingMask] = s;
+                scopeWrite = nextScope;
+            }
+        }
     }
 
     if (recording) {
         recWriteIdx_.store(recWrite, std::memory_order_release);
+    }
+    if (scopeOn) {
+        scopeWriteIdx_.store(scopeWrite, std::memory_order_release);
     }
 
     // Update peak meter (atomic max).
@@ -242,6 +257,19 @@ int32_t SynthEngine::drainRecordingFrames(float* outFloats, int32_t maxFrames) {
         ++written;
     }
     recReadIdx_.store(r, std::memory_order_release);
+    return written;
+}
+
+int32_t SynthEngine::drainScopeFrames(float* out, int32_t maxFrames) {
+    const int32_t w = scopeWriteIdx_.load(std::memory_order_acquire);
+    int32_t r = scopeReadIdx_.load(std::memory_order_relaxed);
+    int32_t written = 0;
+    while (written < maxFrames && (r & kScopeRingMask) != (w & kScopeRingMask)) {
+        out[written] = scopeRing_[r & kScopeRingMask];
+        r = (r + 1) & kScopeRingMask;
+        ++written;
+    }
+    scopeReadIdx_.store(r, std::memory_order_release);
     return written;
 }
 

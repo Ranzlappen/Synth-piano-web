@@ -8,6 +8,7 @@ import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
 import android.os.Handler
 import android.os.Looper
+import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -95,7 +96,7 @@ private class SynthMidiReceiver(private val synth: SynthController) : MidiReceiv
                     if (i + 2 >= count) return
                     val note = msg[offset + i + 1].toInt() and 0x7F
                     val vel = msg[offset + i + 2].toInt() and 0x7F
-                    if (vel > 0) synth.noteOn(note, vel / 127f) else synth.noteOff(note)
+                    if (vel > 0) synth.noteOn(note, vel / 127f, NoteSource.MIDI) else synth.noteOff(note)
                     i += 3
                 }
                 0x80 -> { // Note Off

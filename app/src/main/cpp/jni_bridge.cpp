@@ -106,4 +106,29 @@ Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeDrainRecording(JNIE
     return written;
 }
 
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetScopeEnabled(JNIEnv*, jobject,
+                                                                              jlong h,
+                                                                              jboolean on) {
+    if (auto* e = asEngine(h)) e->setScopeEnabled(on == JNI_TRUE);
+}
+
+JNIEXPORT jint JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeDrainScope(JNIEnv* env, jobject,
+                                                                         jlong h,
+                                                                         jfloatArray out,
+                                                                         jint maxFrames) {
+    SynthEngine* e = asEngine(h);
+    if (!e || out == nullptr) return 0;
+    jboolean isCopy = JNI_FALSE;
+    jfloat* buf = env->GetFloatArrayElements(out, &isCopy);
+    if (!buf) return 0;
+    const jsize len = env->GetArrayLength(out);
+    int32_t cap = static_cast<int32_t>(len);
+    if (maxFrames > 0 && maxFrames < cap) cap = maxFrames;
+    int32_t written = e->drainScopeFrames(buf, cap);
+    env->ReleaseFloatArrayElements(out, buf, 0);
+    return written;
+}
+
 } // extern "C"

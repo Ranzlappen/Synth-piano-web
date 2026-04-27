@@ -62,6 +62,15 @@ class NativeSynth {
     fun drainRecording(out: FloatArray, maxFrames: Int = 0): Int =
         nativeDrainRecording(handle, out, maxFrames)
 
+    fun setScopeEnabled(on: Boolean) = nativeSetScopeEnabled(handle, on)
+
+    /**
+     * Drains mono master-mix samples from the oscilloscope tap into [out].
+     * @return frames written (≤ maxFrames, ≤ out.size).
+     */
+    fun drainScope(out: FloatArray, maxFrames: Int = 0): Int =
+        nativeDrainScope(handle, out, maxFrames)
+
     // --- JNI ---
 
     private external fun nativeCreate(): Long
@@ -84,4 +93,7 @@ class NativeSynth {
 
     private external fun nativeSetRecordingEnabled(handle: Long, on: Boolean)
     private external fun nativeDrainRecording(handle: Long, out: FloatArray, maxFrames: Int): Int
+
+    private external fun nativeSetScopeEnabled(handle: Long, on: Boolean)
+    private external fun nativeDrainScope(handle: Long, out: FloatArray, maxFrames: Int): Int
 }

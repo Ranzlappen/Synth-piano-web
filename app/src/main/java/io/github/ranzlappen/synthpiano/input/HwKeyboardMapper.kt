@@ -1,6 +1,7 @@
 package io.github.ranzlappen.synthpiano.input
 
 import android.view.KeyEvent
+import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import kotlinx.serialization.Serializable
@@ -29,6 +30,10 @@ class HwKeyboardMapper(
     private val baseNote = 60   // C4
     private val held = mutableSetOf<Int>()
 
+    // While set, ACTION_DOWN events go to this callback instead of
+    // triggering notes — used by the keymap editor's capture mode.
+    private var captureCallback: ((keyCode: Int) -> Unit)? = null
+
     fun refreshFromPrefs() {
         val json = prefs.blockingKeymapJson()
         if (json.isNullOrBlank()) {
@@ -45,12 +50,24 @@ class HwKeyboardMapper(
         // Only react to actual hardware keys, not soft-keyboard input.
         val src = event.source
         if (src and android.view.InputDevice.SOURCE_KEYBOARD == 0) return false
+
+        // Capture mode short-circuits binding edits before we touch the
+        // synth. Lift any held notes first so a captured key isn't left
+        // playing if the user binds while a note is sustained.
+        captureCallback?.let { cb ->
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                allNotesOffInternal()
+                cb(event.keyCode)
+            }
+            return true
+        }
+
         val offset = keyToOffset[event.keyCode] ?: return false
         val midi = baseNote + offset
         return when (event.action) {
             KeyEvent.ACTION_DOWN -> {
                 if (event.repeatCount == 0 && held.add(event.keyCode)) {
-                    synth.noteOn(midi)
+                    synth.noteOn(midi, source = NoteSource.HW_KEYBOARD)
                 }
                 true
             }
@@ -61,6 +78,18 @@ class HwKeyboardMapper(
                 true
             }
             else -> false
+        }
+    }
+
+    fun setCaptureCallback(cb: ((Int) -> Unit)?) {
+        captureCallback = cb
+        if (cb != null) allNotesOffInternal()
+    }
+
+    private fun allNotesOffInternal() {
+        if (held.isNotEmpty()) {
+            synth.allNotesOff()
+            held.clear()
         }
     }
 

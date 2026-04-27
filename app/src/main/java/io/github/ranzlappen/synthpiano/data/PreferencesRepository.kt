@@ -28,6 +28,8 @@ private object Keys {
     val CHORD_PADS_JSON = stringPreferencesKey("chord_pads_json")
     val LAST_SCORE_URI = stringPreferencesKey("last_score_uri")
     val TEMPO_BPM = intPreferencesKey("tempo_bpm")
+    val THEME_ACCENT = stringPreferencesKey("theme_accent")
+    val SCALE_KEY = stringPreferencesKey("scale_key")
 }
 
 /**
@@ -72,6 +74,12 @@ class PreferencesRepository(private val context: Context) {
     val tempoBpm: Flow<Int> =
         context.dataStore.data.map { it[Keys.TEMPO_BPM] ?: 120 }
 
+    val themeAccent: Flow<String> =
+        context.dataStore.data.map { it[Keys.THEME_ACCENT] ?: "AURORA" }
+
+    val scaleKey: Flow<String> =
+        context.dataStore.data.map { it[Keys.SCALE_KEY] ?: "NONE" }
+
     suspend fun setWaveform(w: Waveform) =
         edit { it[Keys.WAVEFORM] = w.name }
 
@@ -96,6 +104,10 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setTempoBpm(bpm: Int) = edit { it[Keys.TEMPO_BPM] = bpm.coerceIn(20, 300) }
 
+    suspend fun setThemeAccent(name: String) = edit { it[Keys.THEME_ACCENT] = name }
+
+    suspend fun setScaleKey(name: String) = edit { it[Keys.SCALE_KEY] = name }
+
     /** Synchronous snapshot of the keymap JSON for non-suspending init paths. */
     fun blockingKeymapJson(): String? = runBlocking { keymapJson.first() }
 
@@ -112,6 +124,6 @@ class PreferencesRepository(private val context: Context) {
     fun keysSnapshot(): Set<Preferences.Key<*>> = setOf(
         Keys.WAVEFORM, Keys.ATTACK, Keys.DECAY, Keys.SUSTAIN, Keys.RELEASE,
         Keys.MASTER_AMP, Keys.OCTAVE, Keys.KEYMAP_JSON, Keys.CHORD_PADS_JSON,
-        Keys.LAST_SCORE_URI, Keys.TEMPO_BPM,
+        Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT, Keys.SCALE_KEY,
     )
 }

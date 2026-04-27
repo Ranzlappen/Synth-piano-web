@@ -1,48 +1,46 @@
 package io.github.ranzlappen.synthpiano.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkScheme = darkColorScheme(
-    primary = SynthPurple,
-    onPrimary = SurfaceDark,
-    secondary = SynthAmber,
-    background = SurfaceDark,
-    surface = SurfaceDark,
-)
+/**
+ * The current accent is read by composables (e.g. for the page gradient
+ * background) without having to thread it through every call site.
+ */
+val LocalThemeAccent = staticCompositionLocalOf { ThemeAccent.AURORA }
 
-private val LightScheme = lightColorScheme(
-    primary = SynthPurpleDark,
-    onPrimary = SurfaceLight,
-    secondary = SynthAmber,
-    background = SurfaceLight,
-    surface = SurfaceLight,
-)
-
+/**
+ * Always dark. The Synth Piano is a performance surface — bright modes
+ * blow out the gradient and the glow on active controls. Accent picks the
+ * scheme; SYSTEM defers to Android 12+ Material You.
+ */
 @Composable
 fun SynthPianoTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    accent: ThemeAccent = ThemeAccent.AURORA,
     content: @Composable () -> Unit,
 ) {
-    val scheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val ctx = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+    val scheme = when (accent) {
+        ThemeAccent.AURORA -> AuroraScheme
+        ThemeAccent.SUNSET -> SunsetScheme
+        ThemeAccent.MINT -> MintScheme
+        ThemeAccent.MONO -> MonoScheme
+        ThemeAccent.SYSTEM -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dynamicDarkColorScheme(LocalContext.current)
+        } else {
+            AuroraScheme
         }
-        darkTheme -> DarkScheme
-        else -> LightScheme
     }
-    MaterialTheme(
-        colorScheme = scheme,
-        typography = SynthTypography,
-        content = content,
-    )
+
+    CompositionLocalProvider(LocalThemeAccent provides accent) {
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = SynthTypography,
+            content = content,
+        )
+    }
 }

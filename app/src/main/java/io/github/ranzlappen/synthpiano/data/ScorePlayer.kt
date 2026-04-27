@@ -1,5 +1,6 @@
 package io.github.ranzlappen.synthpiano.data
 
+import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -40,7 +41,7 @@ class ScorePlayer(
                     if (!isActive) break
                     _currentStep.value = index
                     val midiNotes = step.noteNames.mapNotNull(::noteNameToMidi)
-                    midiNotes.forEach { synth.noteOn(it) }
+                    midiNotes.forEach { synth.noteOn(it, source = NoteSource.SCORE) }
                     val durMs = (step.durationBeats * msPerBeat).toLong().coerceAtLeast(20L)
                     delay(durMs)
                     midiNotes.forEach { synth.noteOff(it) }
