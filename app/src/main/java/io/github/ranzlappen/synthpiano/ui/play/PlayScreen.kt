@@ -152,5 +152,3 @@ fun PlayScreen(
     }
 }
 
-@Suppress("unused")
-private fun ChordPad.dummy(): String = label()

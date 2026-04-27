@@ -93,8 +93,7 @@ private fun PadButton(
                     onPress = {
                         onDown()
                         try {
-                            val released = tryAwaitRelease()
-                            if (released) onUp() else onUp()
+                            tryAwaitRelease()
                         } finally {
                             onUp()
                         }

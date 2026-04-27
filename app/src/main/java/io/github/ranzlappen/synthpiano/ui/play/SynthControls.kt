@@ -40,7 +40,6 @@ fun SynthControlsBar(
                 )
             }
         }
-        Spacer(Modifier.width(0.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AdsrSlider("A", adsr.attackSec, 0.001f..2.0f) { onAdsr(adsr.copy(attackSec = it)) }
             AdsrSlider("D", adsr.decaySec, 0.001f..2.0f) { onAdsr(adsr.copy(decaySec = it)) }

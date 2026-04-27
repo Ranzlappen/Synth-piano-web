@@ -1,5 +1,6 @@
 package io.github.ranzlappen.synthpiano.ui.play
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,18 +18,19 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.sp
 import io.github.ranzlappen.synthpiano.ui.theme.KeyBlack
 import io.github.ranzlappen.synthpiano.ui.theme.KeyBlackPressed
 import io.github.ranzlappen.synthpiano.ui.theme.KeyLabel
 import io.github.ranzlappen.synthpiano.ui.theme.KeyWhite
 import io.github.ranzlappen.synthpiano.ui.theme.KeyWhitePressed
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.sp
 
 /**
  * Multi-touch piano keyboard. Each pointer is mapped to one MIDI note;
@@ -56,7 +58,7 @@ fun PianoKeyboard(
     // Per-pointer last note, so we can release it when the pointer moves
     // to a different key or lifts.
     val pointerNotes = remember { mutableMapOf<Long, Int>() }
-    var size by remember { mutableStateOf(Size.Zero) }
+    var size by remember { mutableStateOf(IntSize.Zero) }
 
     fun whiteKeyIndexFromX(x: Float, w: Float): Int {
         val keyW = w / whiteKeyCount
@@ -99,16 +101,17 @@ fun PianoKeyboard(
 
     Box(modifier = modifier
         .background(Color.Transparent)
+        .onSizeChanged { size = it }
         .pointerInput(Unit) {
             keyboardGestureLoop(
                 onDown = { id, pos ->
-                    val midi = midiAt(pos.x, pos.y, size.width, size.height)
+                    val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
                     pointerNotes[id]?.let { onNoteOff(it) }
                     pointerNotes[id] = midi
                     onNoteOn(midi)
                 },
                 onMove = { id, pos ->
-                    val midi = midiAt(pos.x, pos.y, size.width, size.height)
+                    val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
                     val prev = pointerNotes[id]
                     if (prev != midi) {
                         prev?.let { onNoteOff(it) }
@@ -123,7 +126,6 @@ fun PianoKeyboard(
         }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            size = this.size
             val w = this.size.width
             val h = this.size.height
             val keyW = w / whiteKeyCount
