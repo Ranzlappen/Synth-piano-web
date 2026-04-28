@@ -40,46 +40,98 @@ data class KeyboardPanel(
     }
 }
 
+/**
+ * The chord-modifier strip (LOCK + SHIFT rows + zoom buttons) hosted as a
+ * draggable container. Toggles let the user hide the inversion column or
+ * the zoom column on smaller layouts. Position/size/rotation match
+ * [KeyboardPanel].
+ */
+@Serializable
+data class ModifierPanel(
+    val id: String = UUID.randomUUID().toString(),
+    val xFraction: Float = 0f,
+    val yFraction: Float = 0f,
+    val widthFraction: Float = 1f,
+    val heightFraction: Float = 0.25f,
+    val rotationDeg: Int = 0,
+    val showLock: Boolean = true,
+    val showShift: Boolean = true,
+    val showZoom: Boolean = true,
+) {
+    fun normalized(): ModifierPanel = copy(
+        xFraction = xFraction.coerceIn(0f, 1f - MIN_W),
+        yFraction = yFraction.coerceIn(0f, 1f - MIN_H),
+        widthFraction = widthFraction.coerceIn(MIN_W, 1f),
+        heightFraction = heightFraction.coerceIn(MIN_H, 1f),
+        rotationDeg = ((rotationDeg % 360) + 360) % 360,
+    )
+
+    companion object {
+        const val MIN_W = 0.25f
+        const val MIN_H = 0.08f
+    }
+}
+
 @Serializable
 data class KeyboardLayout(
     val name: String,
-    val panels: List<KeyboardPanel>,
+    val panels: List<KeyboardPanel> = emptyList(),
+    val modifiers: List<ModifierPanel> = emptyList(),
     val builtin: Boolean = false,
 )
 
 object BuiltInLayouts {
+
+    val DEFAULT_MODIFIER: ModifierPanel = ModifierPanel(
+        id = "default-mods",
+        xFraction = 0f,
+        yFraction = 0f,
+        widthFraction = 1f,
+        heightFraction = 0.22f,
+        rotationDeg = 0,
+        showLock = true,
+        showShift = true,
+        showZoom = true,
+    )
 
     val DEFAULT: KeyboardLayout = KeyboardLayout(
         name = "Default",
         panels = listOf(
             KeyboardPanel(
                 id = "default",
-                xFraction = 0f, yFraction = 0f,
-                widthFraction = 1f, heightFraction = 1f,
+                xFraction = 0f, yFraction = 0.22f,
+                widthFraction = 1f, heightFraction = 0.78f,
                 rotationDeg = 0,
                 firstMidi = 21, whiteKeyCount = 52,
             ),
         ),
+        modifiers = listOf(DEFAULT_MODIFIER),
         builtin = true,
     )
 
-    /** Two side-by-side ~3-octave panels with a small center gutter. */
+    /** Two side-by-side ~3-octave panels under a slim modifier strip. */
     val THUMB_FRIENDLY: KeyboardLayout = KeyboardLayout(
         name = "Thumb-Friendly",
         panels = listOf(
             KeyboardPanel(
                 id = "thumb-left",
-                xFraction = 0f, yFraction = 0.05f,
-                widthFraction = 0.48f, heightFraction = 0.95f,
+                xFraction = 0f, yFraction = 0.20f,
+                widthFraction = 0.48f, heightFraction = 0.80f,
                 rotationDeg = 0,
                 firstMidi = 48, whiteKeyCount = 21,  // C3..A5 white keys
             ),
             KeyboardPanel(
                 id = "thumb-right",
-                xFraction = 0.52f, yFraction = 0.05f,
-                widthFraction = 0.48f, heightFraction = 0.95f,
+                xFraction = 0.52f, yFraction = 0.20f,
+                widthFraction = 0.48f, heightFraction = 0.80f,
                 rotationDeg = 0,
                 firstMidi = 60, whiteKeyCount = 21,  // C4..A6 white keys
+            ),
+        ),
+        modifiers = listOf(
+            DEFAULT_MODIFIER.copy(
+                id = "thumb-mods",
+                heightFraction = 0.18f,
             ),
         ),
         builtin = true,
@@ -99,5 +151,24 @@ fun KeyboardLayout.toJsonString(): String =
 
 fun parseKeyboardLayoutJson(text: String): KeyboardLayout? = runCatching {
     val raw = layoutJson.decodeFromString(KeyboardLayout.serializer(), text)
-    raw.copy(panels = raw.panels.map { it.normalized() })
+    val normKbs = raw.panels.map { it.normalized() }
+    val normMods = raw.modifiers.map { it.normalized() }
+    if (normMods.isEmpty()) {
+        // Migration: layouts saved before modifier panels existed had
+        // keyboards filling the whole container. Insert the default
+        // modifier strip on top and shrink the keyboards to 78% height.
+        val modH = BuiltInLayouts.DEFAULT_MODIFIER.heightFraction
+        val migratedKbs = normKbs.map { p ->
+            p.copy(
+                yFraction = (p.yFraction * (1f - modH)) + modH,
+                heightFraction = (p.heightFraction * (1f - modH)),
+            ).normalized()
+        }
+        raw.copy(
+            panels = migratedKbs,
+            modifiers = listOf(BuiltInLayouts.DEFAULT_MODIFIER),
+        )
+    } else {
+        raw.copy(panels = normKbs, modifiers = normMods)
+    }
 }.getOrNull()
