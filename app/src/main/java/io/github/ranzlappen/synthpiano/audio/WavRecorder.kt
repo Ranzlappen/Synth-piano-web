@@ -87,19 +87,44 @@ class WavRecorder(private val synth: SynthController) {
     }
 
     fun share(ctx: Context, path: String) {
-        val file = File(path)
-        if (!file.exists()) return
+        shareFiles(ctx, listOf(path))
+    }
+
+    /**
+     * Share one or more recording files via the system share sheet. When
+     * called with both the WAV and its sibling JSON score, the chooser
+     * attaches both so the user can save them anywhere — useful since
+     * `<filesDir>/recordings/` is otherwise inaccessible from a file
+     * manager.
+     */
+    fun shareFiles(ctx: Context, paths: List<String>) {
+        val files = paths.map { File(it) }.filter { it.exists() }
+        if (files.isEmpty()) return
         val authority = "${ctx.packageName}.fileprovider"
-        val uri: Uri = FileProvider.getUriForFile(ctx, authority, file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "audio/wav"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val uris = ArrayList(files.map { FileProvider.getUriForFile(ctx, authority, it) })
+        val intent = if (uris.size == 1) {
+            Intent(Intent.ACTION_SEND).apply {
+                type = mimeFor(files[0])
+                putExtra(Intent.EXTRA_STREAM, uris[0])
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        } else {
+            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = "*/*"
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
         }
         ctx.startActivity(
             Intent.createChooser(intent, "Share recording")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
+    }
+
+    private fun mimeFor(file: File): String = when (file.extension.lowercase(Locale.US)) {
+        "wav" -> "audio/wav"
+        "json" -> "application/json"
+        else -> "*/*"
     }
 
     private fun writeWavHeader(raf: RandomAccessFile, sampleRate: Int) {

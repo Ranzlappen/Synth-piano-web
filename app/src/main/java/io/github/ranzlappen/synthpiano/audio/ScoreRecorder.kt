@@ -1,5 +1,6 @@
 package io.github.ranzlappen.synthpiano.audio
 
+import android.util.Log
 import io.github.ranzlappen.synthpiano.data.Score
 import io.github.ranzlappen.synthpiano.data.ScoreStep
 import io.github.ranzlappen.synthpiano.data.midiToNoteName
@@ -68,9 +69,13 @@ class ScoreRecorder(
         val snapshot: List<NoteCaptureEvent> = synchronized(captureList) { captureList.toList() }
         val score = buildScore(snapshot, title)
         return try {
-            File(path).writeText(score.toJsonString(prettyPrint = true))
+            val out = File(path)
+            out.parentFile?.mkdirs()
+            out.writeText(score.toJsonString(prettyPrint = true))
+            Log.i(TAG, "Wrote score JSON: $path (${snapshot.size} events, ${score.notes.size} steps)")
             path
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to write score JSON to $path", t)
             null
         }
     }
@@ -148,6 +153,7 @@ class ScoreRecorder(
     }
 
     companion object {
+        private const val TAG = "ScoreRecorder"
         const val TEMPO_BPM: Int = 120
         const val CHORD_WINDOW_MS: Long = 40L
         const val REST_THRESHOLD_MS: Long = 60L
