@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import io.github.ranzlappen.synthpiano.data.ChordInversion
 import io.github.ranzlappen.synthpiano.data.ChordQuality
 
 /**
@@ -29,6 +30,10 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
  *     pressed. [onPress] fires on finger-down, [onRelease] on lift /
  *     gesture cancellation.
  *
+ * Each row also exposes 1/2/3 inversion pills appended after a small
+ * gap. They follow the same momentary/sticky convention. Only one
+ * inversion can be active per row; tapping the active one clears it.
+ *
  * Active buttons render in [MaterialTheme.colorScheme.primary]; inactive
  * use surfaceVariant. The leftmost cell is a 40dp row label.
  */
@@ -37,10 +42,14 @@ fun ChordModifierRow(
     label: String,
     qualities: List<ChordQuality>,
     selected: Set<ChordQuality>,
+    inversion: ChordInversion,
     momentary: Boolean = false,
     onToggle: ((ChordQuality) -> Unit)? = null,
     onPress: ((ChordQuality) -> Unit)? = null,
     onRelease: ((ChordQuality) -> Unit)? = null,
+    onInversionToggle: ((ChordInversion) -> Unit)? = null,
+    onInversionPress: ((ChordInversion) -> Unit)? = null,
+    onInversionRelease: ((ChordInversion) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -55,8 +64,8 @@ fun ChordModifierRow(
             modifier = Modifier.width(40.dp),
         )
         qualities.forEach { q ->
-            ChordModifierButton(
-                quality = q,
+            ChordPillButton(
+                text = q.label(),
                 selected = q in selected,
                 momentary = momentary,
                 onToggle = { onToggle?.invoke(q) },
@@ -64,12 +73,24 @@ fun ChordModifierRow(
                 onRelease = { onRelease?.invoke(q) },
             )
         }
+        // Visual divider between qualities and inversions.
+        Box(modifier = Modifier.width(8.dp))
+        listOf(ChordInversion.FIRST, ChordInversion.SECOND, ChordInversion.THIRD).forEach { inv ->
+            ChordPillButton(
+                text = inv.label(),
+                selected = inversion == inv,
+                momentary = momentary,
+                onToggle = { onInversionToggle?.invoke(inv) },
+                onPress = { onInversionPress?.invoke(inv) },
+                onRelease = { onInversionRelease?.invoke(inv) },
+            )
+        }
     }
 }
 
 @Composable
-private fun ChordModifierButton(
-    quality: ChordQuality,
+private fun ChordPillButton(
+    text: String,
     selected: Boolean,
     momentary: Boolean,
     onToggle: () -> Unit,
@@ -105,7 +126,7 @@ private fun ChordModifierButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = quality.label(),
+            text = text,
             style = MaterialTheme.typography.labelLarge,
             color = fg,
         )

@@ -96,6 +96,12 @@ Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetGlideSec(JNIEnv*
     if (auto* e = asEngine(h)) e->setGlideSec(s);
 }
 
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetPolyCompensation(JNIEnv*, jobject,
+                                                                                  jlong h, jfloat v) {
+    if (auto* e = asEngine(h)) e->setPolyCompensation(v);
+}
+
 JNIEXPORT jint JNICALL
 Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeGetSampleRate(JNIEnv*, jobject, jlong h) {
     return asEngine(h) ? asEngine(h)->sampleRate() : 0;

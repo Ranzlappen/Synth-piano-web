@@ -57,6 +57,9 @@ class NativeSynth {
     fun setGlideSec(s: Float) =
         nativeSetGlideSec(handle, s.coerceIn(0f, 0.5f))
 
+    fun setPolyCompensation(v: Float) =
+        nativeSetPolyCompensation(handle, v.coerceIn(0f, 1f))
+
     fun sampleRate(): Int = nativeGetSampleRate(handle)
 
     /** Returns peak magnitude since last call, in [0, 1]. */
@@ -104,6 +107,7 @@ class NativeSynth {
     private external fun nativeSetFilter(handle: Long, cutoffHz: Float, resonance: Float)
     private external fun nativeSetVelocitySensitivity(handle: Long, v: Float)
     private external fun nativeSetGlideSec(handle: Long, s: Float)
+    private external fun nativeSetPolyCompensation(handle: Long, v: Float)
 
     private external fun nativeGetSampleRate(handle: Long): Int
     private external fun nativeGetMasterPeak(handle: Long): Float

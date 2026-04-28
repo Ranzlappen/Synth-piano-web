@@ -104,4 +104,41 @@ class ChordModifierSetTest {
             parseChordModifierSet("MAJ,GARBAGE"),
         )
     }
+
+    @Test
+    fun inversionNone_passesThrough() {
+        assertEquals(listOf(0, 4, 7), applyInversion(listOf(0, 4, 7), ChordInversion.NONE))
+    }
+
+    @Test
+    fun firstInversion_majorTriad() {
+        assertEquals(listOf(4, 7, 12), applyInversion(listOf(0, 4, 7), ChordInversion.FIRST))
+    }
+
+    @Test
+    fun secondInversion_minorTriad() {
+        assertEquals(listOf(7, 12, 15), applyInversion(listOf(0, 3, 7), ChordInversion.SECOND))
+    }
+
+    @Test
+    fun thirdInversion_dom7() {
+        assertEquals(
+            listOf(10, 12, 16, 19),
+            applyInversion(listOf(0, 4, 7, 10), ChordInversion.THIRD),
+        )
+    }
+
+    @Test
+    fun thirdInversion_onTriad_isNoOp() {
+        // Triads only have 3 notes; 3rd inversion would rotate past the list,
+        // so it should be a no-op rather than return a misleading voicing.
+        assertEquals(listOf(0, 4, 7), applyInversion(listOf(0, 4, 7), ChordInversion.THIRD))
+    }
+
+    @Test
+    fun anyInversion_onSingleNote_isNoOp() {
+        assertEquals(listOf(0), applyInversion(listOf(0), ChordInversion.FIRST))
+        assertEquals(listOf(0), applyInversion(listOf(0), ChordInversion.SECOND))
+        assertEquals(listOf(0), applyInversion(listOf(0), ChordInversion.THIRD))
+    }
 }

@@ -184,11 +184,25 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
 
     drainEvents();
 
+    int32_t activeVoices = 0;
+    for (auto& v : voices_) {
+        if (v.isActive()) ++activeVoices;
+    }
+
     for (auto& v : voices_) {
         v.renderAdd(scratch, numFrames, adsr_, filter_);
     }
 
     const float amp = masterAmp_.load(std::memory_order_relaxed);
+    const float comp = polyComp_.load(std::memory_order_relaxed);
+    const float invSqrtN = (activeVoices > 1)
+        ? 1.0f / std::sqrt(static_cast<float>(activeVoices))
+        : 1.0f;
+    // Blend 1.0 (no comp) with invSqrtN (full comp).
+    const float voiceGainTarget = 1.0f + comp * (invSqrtN - 1.0f);
+    // Per-block one-pole smoothing avoids zipper noise when voices come/go.
+    polyGainSmoothed_ += 0.05f * (voiceGainTarget - polyGainSmoothed_);
+    const float voiceGain = polyGainSmoothed_;
     float localPeak = 0.0f;
 
     const bool recording = recording_.load(std::memory_order_acquire);
@@ -200,7 +214,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
     const int32_t scopeRead = scopeReadIdx_.load(std::memory_order_acquire);
 
     for (int32_t i = 0; i < numFrames; ++i) {
-        float s = scratch[i] * amp;
+        float s = scratch[i] * amp * voiceGain;
         // Soft clip to avoid digital harshness if voices stack.
         if (s > 1.0f)  s = 1.0f - 0.5f * (s - 1.0f);
         if (s < -1.0f) s = -1.0f + 0.5f * (-1.0f - s);

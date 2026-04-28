@@ -33,8 +33,10 @@ import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
+import io.github.ranzlappen.synthpiano.data.ChordInversion
 import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
+import io.github.ranzlappen.synthpiano.data.applyInversion
 import io.github.ranzlappen.synthpiano.data.buildChordIntervals
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -65,12 +67,14 @@ fun PerformTab(
 
     val heldBySource by synth.heldBySource.collectAsState()
     val sticky by prefs.chordModSticky.collectAsState(initial = emptySet())
+    val stickyInv by prefs.chordInvSticky.collectAsState(initial = ChordInversion.NONE)
     val zoom by prefs.pianoZoom.collectAsState(initial = 1.0f)
     val savedLeftC by prefs.keyboardLeftC.collectAsState(initial = 48)
 
     // Held (momentary) modifiers live only in memory; releasing the
     // SHIFT button or app exit clears them.
     var held by remember { mutableStateOf<Set<ChordQuality>>(emptySet()) }
+    var heldInv by remember { mutableStateOf(ChordInversion.NONE) }
 
     // Map: piano-key MIDI root -> notes currently sounding for that root.
     // Snapshots the chord at note-on so that toggling sticky modifiers mid-
@@ -106,7 +110,8 @@ fun PerformTab(
     }
 
     val onPianoNoteOn: (Int) -> Unit = { rootMidi ->
-        val intervals = buildChordIntervals(sticky union held)
+        val effectiveInv = if (heldInv != ChordInversion.NONE) heldInv else stickyInv
+        val intervals = applyInversion(buildChordIntervals(sticky union held), effectiveInv)
         val notes = intervals
             .map { (rootMidi + it).coerceIn(0, 127) }
             .distinct()
@@ -140,18 +145,28 @@ fun PerformTab(
                         label = "LOCK",
                         qualities = qualities,
                         selected = sticky,
+                        inversion = stickyInv,
                         onToggle = { q ->
                             val next = if (q in sticky) sticky - q else sticky + q
                             scope.launch { prefs.setChordModSticky(next) }
+                        },
+                        onInversionToggle = { inv ->
+                            val next = if (inv == stickyInv) ChordInversion.NONE else inv
+                            scope.launch { prefs.setChordInvSticky(next) }
                         },
                     )
                     ChordModifierRow(
                         label = "SHIFT",
                         qualities = qualities,
                         selected = held,
+                        inversion = heldInv,
                         momentary = true,
                         onPress = { q -> held = held + q },
                         onRelease = { q -> held = held - q },
+                        onInversionPress = { inv -> heldInv = inv },
+                        onInversionRelease = { inv ->
+                            if (heldInv == inv) heldInv = ChordInversion.NONE
+                        },
                     )
                 }
                 Column(

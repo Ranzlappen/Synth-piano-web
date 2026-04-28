@@ -83,3 +83,45 @@ fun parseChordModifierSet(s: String?): Set<ChordQuality> {
         runCatching { ChordQuality.valueOf(token.trim()) }.getOrNull()
     }
 }
+
+/**
+ * Voicing rotation applied on top of the chord intervals from
+ * [buildChordIntervals]. Each step lifts the lowest note an octave so that
+ * a Cmaj played in 1st inversion sounds E-G-C, 2nd inversion G-C-E, etc.
+ *
+ * 3rd inversion is only musically meaningful on 4-note chords (any of the
+ * 7th flavours). For 3-note triads it is a no-op (the rotation would
+ * produce the same chord one octave up, which the keyboard can already do).
+ */
+enum class ChordInversion {
+    NONE, FIRST, SECOND, THIRD;
+
+    fun label(): String = when (this) {
+        NONE -> ""
+        FIRST -> "1"
+        SECOND -> "2"
+        THIRD -> "3"
+    }
+}
+
+/**
+ * Returns [intervals] rotated by [inv] inversions. Single-note inputs
+ * (size <= 1) and rotations beyond list size return the input unchanged.
+ */
+fun applyInversion(intervals: List<Int>, inv: ChordInversion): List<Int> {
+    if (inv == ChordInversion.NONE || intervals.size <= 1) return intervals
+    val steps = when (inv) {
+        ChordInversion.FIRST -> 1
+        ChordInversion.SECOND -> 2
+        ChordInversion.THIRD -> 3
+        ChordInversion.NONE -> 0
+    }
+    if (steps >= intervals.size) return intervals
+    var result = intervals
+    repeat(steps) {
+        // Drop the lowest interval, re-add it raised by an octave.
+        val head = result.first()
+        result = result.drop(1) + (head + 12)
+    }
+    return result
+}

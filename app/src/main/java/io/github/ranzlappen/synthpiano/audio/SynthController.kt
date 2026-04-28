@@ -37,6 +37,9 @@ class SynthController(private val engine: NativeSynth) {
     private val _voiceShaping = MutableStateFlow(VoiceShaping())
     val voiceShaping: StateFlow<VoiceShaping> = _voiceShaping.asStateFlow()
 
+    private val _polyComp = MutableStateFlow(1f)
+    val polyComp: StateFlow<Float> = _polyComp.asStateFlow()
+
     private val _heldNotes = MutableStateFlow<Set<Int>>(emptySet())
     val heldNotes: StateFlow<Set<Int>> = _heldNotes.asStateFlow()
 
@@ -61,6 +64,7 @@ class SynthController(private val engine: NativeSynth) {
                 engine.setVelocitySensitivity(velocitySensitivity)
                 engine.setGlideSec(glideSec)
             }
+            engine.setPolyCompensation(_polyComp.value)
         }
     }
 
@@ -151,6 +155,12 @@ class SynthController(private val engine: NativeSynth) {
         val safe = s.coerceIn(0f, 0.5f)
         _voiceShaping.value = _voiceShaping.value.copy(glideSec = safe)
         engine.setGlideSec(safe)
+    }
+
+    fun setPolyCompensation(v: Float) {
+        val safe = v.coerceIn(0f, 1f)
+        _polyComp.value = safe
+        engine.setPolyCompensation(safe)
     }
 
     fun engine(): NativeSynth = engine
