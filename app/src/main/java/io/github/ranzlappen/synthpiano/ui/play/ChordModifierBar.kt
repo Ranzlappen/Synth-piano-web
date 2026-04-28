@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -34,8 +35,9 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
  * gap. They follow the same momentary/sticky convention. Only one
  * inversion can be active per row; tapping the active one clears it.
  *
- * Active buttons render in [MaterialTheme.colorScheme.primary]; inactive
- * use surfaceVariant. The leftmost cell is a 40dp row label.
+ * Buttons are rendered in a [FlowRow] so they wrap onto additional lines
+ * when the row is narrower than the natural pill total — every button
+ * stays visible regardless of container width.
  */
 @Composable
 fun ChordModifierRow(
@@ -54,7 +56,7 @@ fun ChordModifierRow(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
@@ -63,27 +65,33 @@ fun ChordModifierRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(40.dp),
         )
-        qualities.forEach { q ->
-            ChordPillButton(
-                text = q.label(),
-                selected = q in selected,
-                momentary = momentary,
-                onToggle = { onToggle?.invoke(q) },
-                onPress = { onPress?.invoke(q) },
-                onRelease = { onRelease?.invoke(q) },
-            )
-        }
-        // Visual divider between qualities and inversions.
-        Box(modifier = Modifier.width(8.dp))
-        listOf(ChordInversion.FIRST, ChordInversion.SECOND, ChordInversion.THIRD).forEach { inv ->
-            ChordPillButton(
-                text = inv.label(),
-                selected = inversion == inv,
-                momentary = momentary,
-                onToggle = { onInversionToggle?.invoke(inv) },
-                onPress = { onInversionPress?.invoke(inv) },
-                onRelease = { onInversionRelease?.invoke(inv) },
-            )
+        FlowRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            qualities.forEach { q ->
+                ChordPillButton(
+                    text = q.label(),
+                    selected = q in selected,
+                    momentary = momentary,
+                    onToggle = { onToggle?.invoke(q) },
+                    onPress = { onPress?.invoke(q) },
+                    onRelease = { onRelease?.invoke(q) },
+                )
+            }
+            // Visual divider between qualities and inversions; flows like a pill.
+            Box(modifier = Modifier.size(width = 8.dp, height = 1.dp))
+            listOf(ChordInversion.FIRST, ChordInversion.SECOND, ChordInversion.THIRD).forEach { inv ->
+                ChordPillButton(
+                    text = inv.label(),
+                    selected = inversion == inv,
+                    momentary = momentary,
+                    onToggle = { onInversionToggle?.invoke(inv) },
+                    onPress = { onInversionPress?.invoke(inv) },
+                    onRelease = { onInversionRelease?.invoke(inv) },
+                )
+            }
         }
     }
 }

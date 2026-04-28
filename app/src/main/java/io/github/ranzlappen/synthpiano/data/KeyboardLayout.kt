@@ -87,7 +87,7 @@ object BuiltInLayouts {
         xFraction = 0f,
         yFraction = 0f,
         widthFraction = 1f,
-        heightFraction = 0.22f,
+        heightFraction = 0.30f,
         rotationDeg = 0,
         showLock = true,
         showShift = true,
@@ -99,8 +99,8 @@ object BuiltInLayouts {
         panels = listOf(
             KeyboardPanel(
                 id = "default",
-                xFraction = 0f, yFraction = 0.22f,
-                widthFraction = 1f, heightFraction = 0.78f,
+                xFraction = 0f, yFraction = 0.30f,
+                widthFraction = 1f, heightFraction = 0.70f,
                 rotationDeg = 0,
                 firstMidi = 21, whiteKeyCount = 52,
             ),
@@ -115,15 +115,15 @@ object BuiltInLayouts {
         panels = listOf(
             KeyboardPanel(
                 id = "thumb-left",
-                xFraction = 0f, yFraction = 0.20f,
-                widthFraction = 0.48f, heightFraction = 0.80f,
+                xFraction = 0f, yFraction = 0.24f,
+                widthFraction = 0.48f, heightFraction = 0.76f,
                 rotationDeg = 0,
                 firstMidi = 48, whiteKeyCount = 21,  // C3..A5 white keys
             ),
             KeyboardPanel(
                 id = "thumb-right",
-                xFraction = 0.52f, yFraction = 0.20f,
-                widthFraction = 0.48f, heightFraction = 0.80f,
+                xFraction = 0.52f, yFraction = 0.24f,
+                widthFraction = 0.48f, heightFraction = 0.76f,
                 rotationDeg = 0,
                 firstMidi = 60, whiteKeyCount = 21,  // C4..A6 white keys
             ),
@@ -131,7 +131,7 @@ object BuiltInLayouts {
         modifiers = listOf(
             DEFAULT_MODIFIER.copy(
                 id = "thumb-mods",
-                heightFraction = 0.18f,
+                heightFraction = 0.22f,
             ),
         ),
         builtin = true,
