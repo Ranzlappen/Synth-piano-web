@@ -79,6 +79,12 @@
     <string name="settings_capture_cancel">Cancel</string>
     <string name="settings_clear_binding">Clear</string>
     <string name="settings_reset_keys">Reset keymap to defaults</string>
+    <string name="settings_keyboard_layout">Keyboard Layout</string>
+    <string name="settings_keyboard_layout_summary">%1$s · %2$d panel(s)</string>
+    <string name="settings_layout_edit">Edit layout</string>
+    <string name="settings_layout_reset">Reset</string>
+    <string name="settings_layout_default">Default</string>
+    <string name="settings_layout_thumb_friendly">Thumb-Friendly</string>
     <string name="settings_polyphony">Polyphony</string>
     <string name="settings_polyphony_voices">%1$d voices</string>
     <string name="settings_engine_running">Engine: running</string>

@@ -43,6 +43,7 @@ private object Keys {
     val PIANO_ZOOM = floatPreferencesKey("piano_zoom")
     val COMPOSER_EDITOR_W = floatPreferencesKey("composer_editor_weight")
     val COMPOSER_EDITOR_H = floatPreferencesKey("composer_editor_height")
+    val KEYBOARD_LAYOUT_JSON = stringPreferencesKey("keyboard_layout_json")
 }
 
 /**
@@ -136,6 +137,14 @@ class PreferencesRepository(private val context: Context) {
     val composerEditorHeightDp: Flow<Float> =
         context.dataStore.data.map { (it[Keys.COMPOSER_EDITOR_H] ?: 600f).coerceIn(120f, 4000f) }
 
+    /** Active on-screen keyboard layout (panels + positions). */
+    val keyboardLayout: Flow<KeyboardLayout> =
+        context.dataStore.data.map { prefs ->
+            prefs[Keys.KEYBOARD_LAYOUT_JSON]
+                ?.let(::parseKeyboardLayoutJson)
+                ?: BuiltInLayouts.DEFAULT
+        }
+
     suspend fun setWaveform(w: Waveform) =
         edit { it[Keys.WAVEFORM] = w.name }
 
@@ -194,6 +203,12 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setComposerEditorHeightDp(dp: Float) =
         edit { it[Keys.COMPOSER_EDITOR_H] = dp.coerceIn(120f, 4000f) }
 
+    suspend fun setKeyboardLayout(layout: KeyboardLayout) = edit {
+        it[Keys.KEYBOARD_LAYOUT_JSON] = layout.toJsonString()
+    }
+
+    suspend fun clearKeyboardLayout() = edit { it.remove(Keys.KEYBOARD_LAYOUT_JSON) }
+
     /** Synchronous snapshot of the keymap JSON for non-suspending init paths. */
     fun blockingKeymapJson(): String? = runBlocking { keymapJson.first() }
 
@@ -215,5 +230,6 @@ class PreferencesRepository(private val context: Context) {
         Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT,
         Keys.CHORD_MOD_STICKY, Keys.CHORD_INV_STICKY, Keys.PIANO_ZOOM,
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
+        Keys.KEYBOARD_LAYOUT_JSON,
     )
 }

@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.RecordingSession
+import io.github.ranzlappen.synthpiano.audio.ScoreRecorder
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.audio.WavRecorder
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
@@ -85,7 +86,8 @@ fun SynthAppRoot(
     val midiDevices by midi.connectedDeviceNames.collectAsState()
 
     val recorder = remember { WavRecorder(synth) }
-    val session = remember { RecordingSession(recorder, scope) }
+    val scoreRecorder = remember { ScoreRecorder(synth, scope) }
+    val session = remember { RecordingSession(recorder, scoreRecorder, scope) }
     val isRecording by session.isRecording.collectAsState()
     val elapsed by session.elapsedMs.collectAsState()
     val lastPath by session.lastPath.collectAsState()
