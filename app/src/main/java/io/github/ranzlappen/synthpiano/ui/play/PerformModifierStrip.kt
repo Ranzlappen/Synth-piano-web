@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
@@ -22,11 +24,15 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 
 /**
- * The chord-modifier strip that historically lived at the top of the
- * PERFORM tab: LOCK (sticky) and SHIFT (momentary) chord-modifier rows
- * plus zoom +/- buttons. Now hostable in any layout panel via
+ * The chord-modifier strip historically pinned to the top of the PERFORM
+ * tab: LOCK (sticky) and SHIFT (momentary) chord-modifier rows plus zoom
+ * +/- buttons. Now hostable in any layout panel via
  * [io.github.ranzlappen.synthpiano.data.ModifierPanel] — the show* flags
- * let layouts hide the inversion column or the zoom buttons.
+ * let layouts hide individual sub-controls.
+ *
+ * The body is vertically scrollable and the LOCK/SHIFT rows wrap their
+ * pills via [androidx.compose.foundation.layout.FlowRow], so every button
+ * stays reachable even when the panel is shrunk to a tight container.
  */
 @Composable
 fun PerformModifierStrip(
@@ -52,13 +58,15 @@ fun PerformModifierStrip(
     GlassCard(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (showLock) {

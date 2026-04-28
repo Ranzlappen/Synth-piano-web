@@ -21,23 +21,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -245,6 +250,7 @@ private fun EditableKeyboardView(
 ) {
     val latestPanel by rememberUpdatedState(panel)
     val latestOnChange by rememberUpdatedState(onChange)
+    var showEdit by remember { mutableStateOf(false) }
 
     EditableChrome(
         id = panel.id,
@@ -276,6 +282,7 @@ private fun EditableKeyboardView(
             latestOnChange(cur.copy(rotationDeg = (cur.rotationDeg + 90) % 360))
         },
         onDelete = onDelete,
+        onEdit = { showEdit = true },
     ) {
         val firstName = midiToNoteName(panel.firstMidi)
         Column(
@@ -302,6 +309,14 @@ private fun EditableKeyboardView(
             }
         }
     }
+
+    if (showEdit) {
+        KeyboardPanelEditDialog(
+            panel = panel,
+            onDismiss = { showEdit = false },
+            onApply = { onChange(it.normalized()); showEdit = false },
+        )
+    }
 }
 
 @Composable
@@ -314,6 +329,7 @@ private fun EditableModifierView(
 ) {
     val latestPanel by rememberUpdatedState(panel)
     val latestOnChange by rememberUpdatedState(onChange)
+    var showEdit by remember { mutableStateOf(false) }
 
     EditableChrome(
         id = panel.id,
@@ -345,6 +361,7 @@ private fun EditableModifierView(
             latestOnChange(cur.copy(rotationDeg = (cur.rotationDeg + 90) % 360))
         },
         onDelete = onDelete,
+        onEdit = { showEdit = true },
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -375,6 +392,131 @@ private fun EditableModifierView(
             }
         }
     }
+
+    if (showEdit) {
+        ModifierPanelEditDialog(
+            panel = panel,
+            onDismiss = { showEdit = false },
+            onApply = { onChange(it.normalized()); showEdit = false },
+        )
+    }
+}
+
+@Composable
+private fun ModifierPanelEditDialog(
+    panel: ModifierPanel,
+    onDismiss: () -> Unit,
+    onApply: (ModifierPanel) -> Unit,
+) {
+    var showLock by remember { mutableStateOf(panel.showLock) }
+    var showShift by remember { mutableStateOf(panel.showShift) }
+    var showZoom by remember { mutableStateOf(panel.showZoom) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Modifier panel") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Choose which sub-controls render inside this panel.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.size(4.dp))
+                ToggleRow(
+                    label = "Show LOCK row",
+                    checked = showLock,
+                    onChange = { showLock = it },
+                )
+                ToggleRow(
+                    label = "Show SHIFT row",
+                    checked = showShift,
+                    onChange = { showShift = it },
+                )
+                ToggleRow(
+                    label = "Show zoom buttons",
+                    checked = showZoom,
+                    onChange = { showZoom = it },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onApply(panel.copy(showLock = showLock, showShift = showShift, showZoom = showZoom))
+            }) { Text("Apply") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun KeyboardPanelEditDialog(
+    panel: KeyboardPanel,
+    onDismiss: () -> Unit,
+    onApply: (KeyboardPanel) -> Unit,
+) {
+    // Lowest note: snap to nearest white key in the slider's value.
+    var lowestMidi by remember { mutableStateOf(panel.firstMidi.toFloat()) }
+    var whiteKeyCount by remember { mutableStateOf(panel.whiteKeyCount.toFloat()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Keyboard panel") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Lowest note: ${midiToNoteName(snapToWhiteKey(lowestMidi.toInt()))}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = lowestMidi,
+                    onValueChange = { lowestMidi = it },
+                    valueRange = 21f..96f,
+                    steps = 96 - 21 - 1,
+                )
+                Text(
+                    "White keys: ${whiteKeyCount.toInt()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = whiteKeyCount,
+                    onValueChange = { whiteKeyCount = it },
+                    valueRange = 7f..52f,
+                    steps = 52 - 7 - 1,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onApply(panel.copy(
+                    firstMidi = snapToWhiteKey(lowestMidi.toInt()),
+                    whiteKeyCount = whiteKeyCount.toInt().coerceIn(7, 52),
+                ))
+            }) { Text("Apply") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+private val WHITE_KEY_PCS_LOCAL: Set<Int> = setOf(0, 2, 4, 5, 7, 9, 11)
+
+private fun snapToWhiteKey(midi: Int): Int {
+    if ((midi % 12) in WHITE_KEY_PCS_LOCAL) return midi
+    // Snap up to the next white key.
+    var m = midi
+    while (m < 127 && (m % 12) !in WHITE_KEY_PCS_LOCAL) m++
+    return m
+}
+
+@Composable
+private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
 }
 
 @Composable
@@ -393,6 +535,7 @@ private fun EditableChrome(
     onResize: (dw: Float, dh: Float) -> Unit,
     onRotate: () -> Unit,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
     body: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -454,16 +597,21 @@ private fun EditableChrome(
             Icon(Icons.Filled.RotateRight, contentDescription = "Rotate panel")
         }
 
-        // Hint icon for movability — shown subtly in the corner.
-        Icon(
-            Icons.Filled.OpenWith,
-            contentDescription = null,
-            tint = accentColor.copy(alpha = 0.5f),
+        // Bottom-left: per-panel options.
+        IconButton(
+            onClick = onEdit,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(4.dp)
-                .size(14.dp),
-        )
+                .padding(2.dp)
+                .size(32.dp)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), CircleShape),
+        ) {
+            Icon(
+                Icons.Filled.Settings,
+                contentDescription = "Panel options",
+                tint = accentColor,
+            )
+        }
 
         // Bottom-right resize handle.
         Box(
