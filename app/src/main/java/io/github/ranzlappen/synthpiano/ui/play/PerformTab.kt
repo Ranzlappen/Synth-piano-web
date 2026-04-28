@@ -3,12 +3,21 @@ package io.github.ranzlappen.synthpiano.ui.play
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -18,10 +27,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.data.ChordQuality
@@ -42,8 +54,8 @@ import kotlinx.coroutines.launch
  *     union of both sets decorates whichever piano key is currently
  *     pressed. With nothing active, a key plays a single note.
  *  2. Full-piano A0–C8 keyboard, horizontally scrollable, taking the rest
- *     of the viewport. Two-finger pinch on the keyboard re-scales white
- *     keys within 0.5×–2.0×.
+ *     of the viewport. Zoom is controlled by the +/- buttons in the panel
+ *     above so multi-finger play is never interrupted by a pinch gesture.
  */
 @Composable
 fun PerformTab(
@@ -72,12 +84,16 @@ fun PerformTab(
     val scrollState = rememberScrollState()
     val whiteKeyPx = with(density) { (PIANO_WHITE_KEY_DP * zoom).toPx() }
 
-    // Restore persisted scroll position once on first composition; do NOT
-    // re-key on whiteKeyPx, otherwise pinch-driven changes would re-snap
-    // scroll to the saved C every frame.
+    // Restore persisted scroll position once on first composition.
     LaunchedEffect(Unit) {
         val target = scrollPxForC(savedLeftC, whiteKeyPx)
         if (scrollState.value != target) scrollState.scrollTo(target)
+    }
+
+    // When zoom changes via the +/- buttons, re-pin scroll so the
+    // previously-leftmost C stays leftmost across the resize.
+    LaunchedEffect(whiteKeyPx) {
+        scrollState.scrollTo(scrollPxForC(savedLeftC, whiteKeyPx))
     }
 
     // Persist scroll changes; re-key on whiteKeyPx so the persisted left-C
@@ -135,6 +151,46 @@ fun PerformTab(
                     onPress = { q -> held = held + q },
                     onRelease = { q -> held = held - q },
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Zoom",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.width(48.dp),
+                    )
+                    IconButton(
+                        onClick = {
+                            val next = (zoom - 0.1f).coerceAtLeast(ZOOM_MIN)
+                            if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
+                        },
+                        enabled = zoom > ZOOM_MIN + 1e-3f,
+                    ) {
+                        Icon(
+                            Icons.Filled.Remove,
+                            contentDescription = stringResource(R.string.score_zoom_out),
+                        )
+                    }
+                    Text(
+                        "${(zoom * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.width(56.dp),
+                    )
+                    IconButton(
+                        onClick = {
+                            val next = (zoom + 0.1f).coerceAtMost(ZOOM_MAX)
+                            if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
+                        },
+                        enabled = zoom < ZOOM_MAX - 1e-3f,
+                    ) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.score_zoom_in),
+                        )
+                    }
+                }
             }
         }
 
@@ -150,7 +206,6 @@ fun PerformTab(
                 scrollState = scrollState,
                 heldBySource = heldBySource,
                 zoom = zoom,
-                onZoomChange = { z -> scope.launch { prefs.setPianoZoom(z) } },
                 onNoteOn = onPianoNoteOn,
                 onNoteOff = onPianoNoteOff,
             )

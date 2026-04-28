@@ -83,6 +83,57 @@ class ScoreModelTest {
     }
 
     @Test
+    fun `parses top-level array score`() {
+        val text = """
+            [
+                {"notes": ["F4", "A4", "C5"], "duration": 1.0},
+                {"note": "rest", "duration": 0.5},
+                {"notes": ["E4", "G4", "B4"], "duration": 1.0}
+            ]
+        """.trimIndent()
+        val score = parseScoreJson(text)
+        assertEquals(3, score.notes.size)
+        assertEquals(listOf("F4", "A4", "C5"), score.notes[0].noteNames)
+        assertTrue(score.notes[1].noteNames.isEmpty())
+        assertEquals(0.5f, score.notes[1].durationBeats, 1e-6f)
+        assertEquals(listOf("E4", "G4", "B4"), score.notes[2].noteNames)
+        assertNull(score.title)
+        assertNull(score.tempoBpm)
+    }
+
+    @Test
+    fun `parses rest literal as empty step`() {
+        val text = """
+            {"notes": [
+                {"note": "rest", "duration": 0.5},
+                {"note": "REST", "duration": 0.25}
+            ]}
+        """.trimIndent()
+        val score = parseScoreJson(text)
+        assertEquals(2, score.notes.size)
+        assertTrue(score.notes[0].noteNames.isEmpty())
+        assertTrue(score.notes[1].noteNames.isEmpty())
+    }
+
+    @Test
+    fun `serializes empty noteNames as rest and round trips`() {
+        val score = Score(
+            notes = listOf(
+                ScoreStep(listOf("C4"), 1.0f),
+                ScoreStep(emptyList(), 0.5f),
+            ),
+            title = "WithRest",
+        )
+        val text = score.toJsonString(prettyPrint = false)
+        assertTrue("rest literal expected in serialized form", text.contains("\"rest\""))
+        val parsed = parseScoreJson(text)
+        assertEquals(2, parsed.notes.size)
+        assertEquals(listOf("C4"), parsed.notes[0].noteNames)
+        assertTrue(parsed.notes[1].noteNames.isEmpty())
+        assertEquals(0.5f, parsed.notes[1].durationBeats, 1e-6f)
+    }
+
+    @Test
     fun `serialized round trips`() {
         val score = Score(
             notes = listOf(
