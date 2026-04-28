@@ -24,6 +24,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,11 +43,13 @@ import io.github.ranzlappen.synthpiano.audio.RecordingSession
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.audio.WavRecorder
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
+import io.github.ranzlappen.synthpiano.data.PresetRepository
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.components.AppGradientBackground
 import io.github.ranzlappen.synthpiano.ui.components.HeaderStrip
 import io.github.ranzlappen.synthpiano.ui.play.PerformTab
+import io.github.ranzlappen.synthpiano.ui.score.AppScoreState
 import io.github.ranzlappen.synthpiano.ui.score.ComposerTab
 import io.github.ranzlappen.synthpiano.ui.settings.SetupTab
 import io.github.ranzlappen.synthpiano.ui.sound.SoundTab
@@ -63,6 +66,7 @@ private enum class Tab(val titleRes: Int) {
 fun SynthAppRoot(
     synth: SynthController,
     prefs: PreferencesRepository,
+    presets: PresetRepository,
     midi: MidiManager,
     hwKeys: HwKeyboardMapper,
 ) {
@@ -70,6 +74,12 @@ fun SynthAppRoot(
     val ctx = LocalContext.current
 
     var tab by rememberSaveable { mutableStateOf(Tab.Perform) }
+
+    // App-scoped score state: survives tab switches (the previous local
+    // remember inside ComposerTab was discarded on every tab change). On
+    // first composition, re-hydrate from LAST_SCORE_URI.
+    val scoreState = remember { AppScoreState(ctx, prefs) }
+    LaunchedEffect(Unit) { scoreState.loadFromPrefs() }
 
     val masterAmp by synth.masterAmp.collectAsState()
     val midiDevices by midi.connectedDeviceNames.collectAsState()
@@ -118,8 +128,8 @@ fun SynthAppRoot(
                 ) {
                     when (tab) {
                         Tab.Perform -> PerformTab(synth = synth, prefs = prefs)
-                        Tab.Sound -> SoundTab(synth = synth, prefs = prefs)
-                        Tab.Compose -> ComposerTab(synth = synth, prefs = prefs)
+                        Tab.Sound -> SoundTab(synth = synth, prefs = prefs, presets = presets)
+                        Tab.Compose -> ComposerTab(synth = synth, prefs = prefs, scoreState = scoreState)
                         Tab.Setup -> SetupTab(synth = synth, prefs = prefs, midi = midi, hwKeys = hwKeys)
                     }
                 }

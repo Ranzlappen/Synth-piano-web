@@ -50,7 +50,7 @@ const val PIANO_WHITE_KEY_COUNT: Int = 52
 val PIANO_WHITE_KEY_DP: Dp = 56.dp
 
 /** Zoom clamps for the +/- buttons in PerformTab. */
-internal const val ZOOM_MIN = 0.5f
+internal const val ZOOM_MIN = 0.1f
 internal const val ZOOM_MAX = 2.0f
 
 private val WHITE_INDEX_TO_MIDI: IntArray = IntArray(PIANO_WHITE_KEY_COUNT) { i ->

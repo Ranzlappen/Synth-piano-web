@@ -18,7 +18,9 @@ import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.SynthAppRoot
 import io.github.ranzlappen.synthpiano.ui.theme.SynthPianoTheme
 import io.github.ranzlappen.synthpiano.ui.theme.ThemeAccent
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
 
@@ -37,6 +39,24 @@ class MainActivity : ComponentActivity() {
         midi = MidiManager(applicationContext, synth)
         hwKeys = HwKeyboardMapper(synth, app.prefs)
 
+        // Hydrate engine state from persisted prefs before composing the UI,
+        // so collectAsState observes the loaded values instead of the
+        // SynthController defaults (which would otherwise overwrite prefs
+        // via the LaunchedEffect persistence chain in SoundTab).
+        runBlocking {
+            val w = app.prefs.waveform.first()
+            val a = app.prefs.adsr.first()
+            val ma = app.prefs.masterAmp.first()
+            val f = app.prefs.filter.first()
+            val v = app.prefs.voiceShaping.first()
+            synth.setWaveform(w)
+            synth.setAdsr(a.attackSec, a.decaySec, a.sustain, a.releaseSec, a.curve)
+            synth.setMasterAmp(ma)
+            synth.setFilter(f.cutoffHz, f.resonance)
+            synth.setVelocitySensitivity(v.velocitySensitivity)
+            synth.setGlideSec(v.glideSec)
+        }
+
         setContent {
             val accentName by app.prefs.themeAccent.collectAsState(initial = "AURORA")
             val accent = ThemeAccent.fromName(accentName)
@@ -44,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 SynthAppRoot(
                     synth = synth,
                     prefs = app.prefs,
+                    presets = app.presets,
                     midi = midi,
                     hwKeys = hwKeys,
                 )

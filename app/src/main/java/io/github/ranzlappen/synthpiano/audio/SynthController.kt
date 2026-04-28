@@ -31,6 +31,12 @@ class SynthController(private val engine: NativeSynth) {
     private val _masterAmp = MutableStateFlow(0.7f)
     val masterAmp: StateFlow<Float> = _masterAmp.asStateFlow()
 
+    private val _filter = MutableStateFlow(FilterSettings())
+    val filter: StateFlow<FilterSettings> = _filter.asStateFlow()
+
+    private val _voiceShaping = MutableStateFlow(VoiceShaping())
+    val voiceShaping: StateFlow<VoiceShaping> = _voiceShaping.asStateFlow()
+
     private val _heldNotes = MutableStateFlow<Set<Int>>(emptySet())
     val heldNotes: StateFlow<Set<Int>> = _heldNotes.asStateFlow()
 
@@ -45,8 +51,16 @@ class SynthController(private val engine: NativeSynth) {
         if (engine.start()) {
             _started.value = true
             engine.setWaveform(_waveform.value)
-            with(_adsr.value) { engine.setAdsr(attackSec, decaySec, sustain, releaseSec) }
+            with(_adsr.value) {
+                engine.setAdsr(attackSec, decaySec, sustain, releaseSec)
+                engine.setEnvelopeCurve(curve)
+            }
             engine.setMasterAmp(_masterAmp.value)
+            with(_filter.value) { engine.setFilter(cutoffHz, resonance) }
+            with(_voiceShaping.value) {
+                engine.setVelocitySensitivity(velocitySensitivity)
+                engine.setGlideSec(glideSec)
+            }
         }
     }
 
@@ -93,21 +107,50 @@ class SynthController(private val engine: NativeSynth) {
         engine.setWaveform(w)
     }
 
-    fun setAdsr(attackSec: Float, decaySec: Float, sustain: Float, releaseSec: Float) {
+    fun setAdsr(
+        attackSec: Float,
+        decaySec: Float,
+        sustain: Float,
+        releaseSec: Float,
+        curve: Float = _adsr.value.curve,
+    ) {
         val safe = Adsr(
             attackSec = attackSec.coerceIn(0.001f, 5.0f),
             decaySec = decaySec.coerceIn(0.001f, 5.0f),
             sustain = sustain.coerceIn(0f, 1f),
             releaseSec = releaseSec.coerceIn(0.001f, 5.0f),
+            curve = curve.coerceIn(-1f, 1f),
         )
         _adsr.value = safe
         engine.setAdsr(safe.attackSec, safe.decaySec, safe.sustain, safe.releaseSec)
+        engine.setEnvelopeCurve(safe.curve)
     }
 
     fun setMasterAmp(a: Float) {
         val safe = a.coerceIn(0f, 1f)
         _masterAmp.value = safe
         engine.setMasterAmp(safe)
+    }
+
+    fun setFilter(cutoffHz: Float, resonance: Float) {
+        val safe = FilterSettings(
+            cutoffHz = cutoffHz.coerceIn(20f, 20000f),
+            resonance = resonance.coerceIn(0f, 1f),
+        )
+        _filter.value = safe
+        engine.setFilter(safe.cutoffHz, safe.resonance)
+    }
+
+    fun setVelocitySensitivity(v: Float) {
+        val safe = v.coerceIn(0f, 1f)
+        _voiceShaping.value = _voiceShaping.value.copy(velocitySensitivity = safe)
+        engine.setVelocitySensitivity(safe)
+    }
+
+    fun setGlideSec(s: Float) {
+        val safe = s.coerceIn(0f, 0.5f)
+        _voiceShaping.value = _voiceShaping.value.copy(glideSec = safe)
+        engine.setGlideSec(safe)
     }
 
     fun engine(): NativeSynth = engine
@@ -117,10 +160,23 @@ class SynthController(private val engine: NativeSynth) {
     }
 }
 
-/** Plain ADSR carrier; seconds are real-time seconds. */
+/** Plain ADSR carrier; seconds are real-time seconds. [curve] in [-1, +1]. */
 data class Adsr(
     val attackSec: Float = 0.005f,
     val decaySec: Float = 0.150f,
     val sustain: Float = 0.700f,
     val releaseSec: Float = 0.250f,
+    val curve: Float = 0f,
+)
+
+/** State-variable low-pass filter settings. */
+data class FilterSettings(
+    val cutoffHz: Float = 18000f,
+    val resonance: Float = 0f,
+)
+
+/** Per-voice shaping that isn't part of the envelope or filter. */
+data class VoiceShaping(
+    val velocitySensitivity: Float = 1f,
+    val glideSec: Float = 0f,
 )

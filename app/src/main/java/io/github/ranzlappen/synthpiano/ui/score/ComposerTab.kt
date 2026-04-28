@@ -69,7 +69,6 @@ import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.Score
 import io.github.ranzlappen.synthpiano.data.ScorePlayer
 import io.github.ranzlappen.synthpiano.data.ScoreStep
-import io.github.ranzlappen.synthpiano.data.parseScoreJson
 import io.github.ranzlappen.synthpiano.data.toJsonString
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 import io.github.ranzlappen.synthpiano.ui.components.HorizontalDragHandle
@@ -88,13 +87,14 @@ import kotlinx.coroutines.withContext
 fun ComposerTab(
     synth: SynthController,
     prefs: PreferencesRepository,
+    scoreState: AppScoreState,
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var score by remember { mutableStateOf<Score?>(null) }
-    var status by remember { mutableStateOf<String?>(null) }
+    val score = scoreState.score
+    val status = scoreState.status
     val tempo by prefs.tempoBpm.collectAsState(initial = 120)
 
     val player = remember { ScorePlayer(scope, synth) }
@@ -108,16 +108,10 @@ fun ComposerTab(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val (loaded, msg) = readScoreFromUri(ctx, uri)
-            if (loaded != null) {
-                score = loaded
-                status = "Loaded${loaded.title?.let { ": $it" } ?: ""}"
-                prefs.setLastScoreUri(uri.toString())
-            } else {
-                status = msg
-            }
-        }
+        // Persist read access so the next launch can auto-reload via
+        // AppScoreState.loadFromPrefs() across process death.
+        tryTakePersistablePermission(ctx, uri)
+        scope.launch { scoreState.loadFromUri(uri) }
     }
 
     val saveLauncher = rememberLauncherForActivityResult(
@@ -127,8 +121,8 @@ fun ComposerTab(
         val current = score ?: return@rememberLauncherForActivityResult
         scope.launch {
             val ok = writeScoreToUri(ctx, uri, current)
-            status = if (ok) ctx.getString(R.string.score_saved)
-                     else ctx.getString(R.string.score_save_failed, "I/O error")
+            scoreState.status = if (ok) ctx.getString(R.string.score_saved)
+                                else ctx.getString(R.string.score_save_failed, "I/O error")
         }
     }
 
@@ -150,7 +144,7 @@ fun ComposerTab(
     val editorPaneFactory: @Composable (Modifier) -> Unit = { paneModifier ->
         EditorPane(
             score = score,
-            onScoreChange = { score = it },
+            onScoreChange = { scoreState.score = it },
             tempo = tempo,
             onTempoChange = { v -> scope.launch { prefs.setTempoBpm(v) } },
             isPlaying = isPlaying,
@@ -162,16 +156,9 @@ fun ComposerTab(
             status = status,
             onLoadJson = { openLauncher.launch(arrayOf("application/json", "*/*")) },
             onLoadDemo = { name ->
-                scope.launch {
-                    val (loaded, msg) = readScoreFromAsset(ctx, "scores/$name")
-                    if (loaded != null) { score = loaded; status = "Demo: ${loaded.title ?: name}" }
-                    else status = msg
-                }
+                scope.launch { scoreState.loadFromAsset("scores/$name") }
             },
-            onNew = {
-                score = Score(notes = emptyList(), title = "Untitled", tempoBpm = tempo)
-                status = "New empty score"
-            },
+            onNew = { scoreState.newEmpty(tempo) },
             onSaveAs = {
                 val name = (score?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.json" }
                 saveLauncher.launch(name)
@@ -546,23 +533,6 @@ private fun RecordingsPane(
             )
         }
     }
-}
-
-private suspend fun readScoreFromUri(ctx: Context, uri: Uri): Pair<Score?, String?> = withContext(Dispatchers.IO) {
-    runCatching {
-        val text = ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            ?: return@runCatching Pair<Score?, String?>(null, "Could not open file")
-        val s = parseScoreJson(text)
-        Pair<Score?, String?>(s, null)
-    }.getOrElse { t -> Pair<Score?, String?>(null, "Failed: ${t.message}") }
-}
-
-private suspend fun readScoreFromAsset(ctx: Context, assetPath: String): Pair<Score?, String?> = withContext(Dispatchers.IO) {
-    runCatching {
-        val text = ctx.assets.open(assetPath).bufferedReader().use { it.readText() }
-        val s = parseScoreJson(text)
-        Pair<Score?, String?>(s, null)
-    }.getOrElse { t -> Pair<Score?, String?>(null, "Failed: ${t.message}") }
 }
 
 private suspend fun writeScoreToUri(ctx: Context, uri: Uri, score: Score): Boolean = withContext(Dispatchers.IO) {

@@ -10,6 +10,9 @@ struct AdsrParams {
     std::atomic<float> decay{0.150f};
     std::atomic<float> sustain{0.700f};
     std::atomic<float> release{0.250f};
+    // Shape applied to attack and release output: 0 = linear, +1 = concave/snappy,
+    // -1 = convex/soft. Implemented as pow(level, exp2(curve*2)).
+    std::atomic<float> curve{0.0f};
 };
 
 class Envelope {

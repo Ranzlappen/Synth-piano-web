@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.ranzlappen.synthpiano.audio.Adsr
+import io.github.ranzlappen.synthpiano.audio.FilterSettings
+import io.github.ranzlappen.synthpiano.audio.VoiceShaping
 import io.github.ranzlappen.synthpiano.audio.Waveform
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -23,6 +25,13 @@ private object Keys {
     val SUSTAIN = floatPreferencesKey("adsr_sustain")
     val RELEASE = floatPreferencesKey("adsr_release")
     val MASTER_AMP = floatPreferencesKey("master_amp")
+    val ADSR_CURVE = floatPreferencesKey("adsr_curve")
+    val FILTER_CUTOFF = floatPreferencesKey("filter_cutoff_hz")
+    val FILTER_RES = floatPreferencesKey("filter_resonance")
+    val VEL_SENS = floatPreferencesKey("velocity_sensitivity")
+    val GLIDE_SEC = floatPreferencesKey("glide_sec")
+    val USER_PRESETS_JSON = stringPreferencesKey("user_presets_json")
+    val LAST_PRESET_NAME = stringPreferencesKey("last_preset_name")
     val OCTAVE = intPreferencesKey("octave")
     val KEYBOARD_LEFT_C = intPreferencesKey("keyboard_left_c")
     val KEYMAP_JSON = stringPreferencesKey("keymap_json")
@@ -56,11 +65,32 @@ class PreferencesRepository(private val context: Context) {
             decaySec = prefs[Keys.DECAY] ?: 0.150f,
             sustain = prefs[Keys.SUSTAIN] ?: 0.700f,
             releaseSec = prefs[Keys.RELEASE] ?: 0.250f,
+            curve = (prefs[Keys.ADSR_CURVE] ?: 0f).coerceIn(-1f, 1f),
         )
     }
 
     val masterAmp: Flow<Float> =
         context.dataStore.data.map { it[Keys.MASTER_AMP] ?: 0.7f }
+
+    val filter: Flow<FilterSettings> = context.dataStore.data.map { prefs ->
+        FilterSettings(
+            cutoffHz = (prefs[Keys.FILTER_CUTOFF] ?: 18000f).coerceIn(20f, 20000f),
+            resonance = (prefs[Keys.FILTER_RES] ?: 0f).coerceIn(0f, 1f),
+        )
+    }
+
+    val voiceShaping: Flow<VoiceShaping> = context.dataStore.data.map { prefs ->
+        VoiceShaping(
+            velocitySensitivity = (prefs[Keys.VEL_SENS] ?: 1f).coerceIn(0f, 1f),
+            glideSec = (prefs[Keys.GLIDE_SEC] ?: 0f).coerceIn(0f, 0.5f),
+        )
+    }
+
+    val userPresetsJson: Flow<String?> =
+        context.dataStore.data.map { it[Keys.USER_PRESETS_JSON] }
+
+    val lastPresetName: Flow<String?> =
+        context.dataStore.data.map { it[Keys.LAST_PRESET_NAME] }
 
     val octave: Flow<Int> =
         context.dataStore.data.map { it[Keys.OCTAVE] ?: 0 }
@@ -87,7 +117,7 @@ class PreferencesRepository(private val context: Context) {
 
     /** Piano keyboard zoom factor (white-key width multiplier). */
     val pianoZoom: Flow<Float> =
-        context.dataStore.data.map { (it[Keys.PIANO_ZOOM] ?: 1.0f).coerceIn(0.5f, 2.0f) }
+        context.dataStore.data.map { (it[Keys.PIANO_ZOOM] ?: 1.0f).coerceIn(0.1f, 2.0f) }
 
     /** Composer editor pane weight in side-by-side layout (>=900dp). */
     val composerEditorWeight: Flow<Float> =
@@ -105,9 +135,26 @@ class PreferencesRepository(private val context: Context) {
         it[Keys.DECAY] = a.decaySec
         it[Keys.SUSTAIN] = a.sustain
         it[Keys.RELEASE] = a.releaseSec
+        it[Keys.ADSR_CURVE] = a.curve
     }
 
     suspend fun setMasterAmp(v: Float) = edit { it[Keys.MASTER_AMP] = v }
+
+    suspend fun setFilter(f: FilterSettings) = edit {
+        it[Keys.FILTER_CUTOFF] = f.cutoffHz
+        it[Keys.FILTER_RES] = f.resonance
+    }
+
+    suspend fun setVoiceShaping(s: VoiceShaping) = edit {
+        it[Keys.VEL_SENS] = s.velocitySensitivity
+        it[Keys.GLIDE_SEC] = s.glideSec
+    }
+
+    suspend fun setUserPresetsJson(json: String) = edit { it[Keys.USER_PRESETS_JSON] = json }
+
+    suspend fun setLastPresetName(name: String?) = edit {
+        if (name == null) it.remove(Keys.LAST_PRESET_NAME) else it[Keys.LAST_PRESET_NAME] = name
+    }
 
     suspend fun setOctave(v: Int) = edit { it[Keys.OCTAVE] = v }
 
@@ -127,7 +174,7 @@ class PreferencesRepository(private val context: Context) {
         edit { it[Keys.CHORD_MOD_STICKY] = s.toPrefString() }
 
     suspend fun setPianoZoom(z: Float) =
-        edit { it[Keys.PIANO_ZOOM] = z.coerceIn(0.5f, 2.0f) }
+        edit { it[Keys.PIANO_ZOOM] = z.coerceIn(0.1f, 2.0f) }
 
     suspend fun setComposerEditorWeight(w: Float) =
         edit { it[Keys.COMPOSER_EDITOR_W] = w.coerceIn(0.2f, 0.85f) }
@@ -150,7 +197,9 @@ class PreferencesRepository(private val context: Context) {
     @Suppress("unused")
     fun keysSnapshot(): Set<Preferences.Key<*>> = setOf(
         Keys.WAVEFORM, Keys.ATTACK, Keys.DECAY, Keys.SUSTAIN, Keys.RELEASE,
-        Keys.MASTER_AMP, Keys.OCTAVE, Keys.KEYBOARD_LEFT_C, Keys.KEYMAP_JSON,
+        Keys.MASTER_AMP, Keys.ADSR_CURVE, Keys.FILTER_CUTOFF, Keys.FILTER_RES,
+        Keys.VEL_SENS, Keys.GLIDE_SEC, Keys.USER_PRESETS_JSON, Keys.LAST_PRESET_NAME,
+        Keys.OCTAVE, Keys.KEYBOARD_LEFT_C, Keys.KEYMAP_JSON,
         Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT,
         Keys.CHORD_MOD_STICKY, Keys.PIANO_ZOOM,
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,8 +15,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -128,56 +125,39 @@ fun PerformTab(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ChordModifierRow(
-                    label = "LOCK",
-                    qualities = qualities,
-                    selected = sticky,
-                    onToggle = { q ->
-                        val next = if (q in sticky) sticky - q else sticky + q
-                        scope.launch { prefs.setChordModSticky(next) }
-                    },
-                )
-                ChordModifierRow(
-                    label = "SHIFT",
-                    qualities = qualities,
-                    selected = held,
-                    momentary = true,
-                    onPress = { q -> held = held + q },
-                    onRelease = { q -> held = held - q },
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        "Zoom",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.width(48.dp),
-                    )
-                    IconButton(
-                        onClick = {
-                            val next = (zoom - 0.1f).coerceAtLeast(ZOOM_MIN)
-                            if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
+                    ChordModifierRow(
+                        label = "LOCK",
+                        qualities = qualities,
+                        selected = sticky,
+                        onToggle = { q ->
+                            val next = if (q in sticky) sticky - q else sticky + q
+                            scope.launch { prefs.setChordModSticky(next) }
                         },
-                        enabled = zoom > ZOOM_MIN + 1e-3f,
-                    ) {
-                        Icon(
-                            Icons.Filled.Remove,
-                            contentDescription = stringResource(R.string.score_zoom_out),
-                        )
-                    }
-                    Text(
-                        "${(zoom * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.width(56.dp),
                     )
+                    ChordModifierRow(
+                        label = "SHIFT",
+                        qualities = qualities,
+                        selected = held,
+                        momentary = true,
+                        onPress = { q -> held = held + q },
+                        onRelease = { q -> held = held - q },
+                    )
+                }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     IconButton(
                         onClick = {
                             val next = (zoom + 0.1f).coerceAtMost(ZOOM_MAX)
@@ -188,6 +168,18 @@ fun PerformTab(
                         Icon(
                             Icons.Filled.Add,
                             contentDescription = stringResource(R.string.score_zoom_in),
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            val next = (zoom - 0.1f).coerceAtLeast(ZOOM_MIN)
+                            if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
+                        },
+                        enabled = zoom > ZOOM_MIN + 1e-3f,
+                    ) {
+                        Icon(
+                            Icons.Filled.Remove,
+                            contentDescription = stringResource(R.string.score_zoom_out),
                         )
                     }
                 }
