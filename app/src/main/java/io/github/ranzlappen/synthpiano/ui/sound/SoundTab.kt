@@ -1,115 +1,368 @@
 package io.github.ranzlappen.synthpiano.ui.sound
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
+import io.github.ranzlappen.synthpiano.audio.Adsr
+import io.github.ranzlappen.synthpiano.audio.FilterSettings
 import io.github.ranzlappen.synthpiano.audio.SynthController
+import io.github.ranzlappen.synthpiano.audio.VoiceShaping
 import io.github.ranzlappen.synthpiano.audio.Waveform
+import io.github.ranzlappen.synthpiano.data.BuiltInPresets
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
+import io.github.ranzlappen.synthpiano.data.PresetRepository
+import io.github.ranzlappen.synthpiano.data.SoundPreset
 import io.github.ranzlappen.synthpiano.ui.components.AdsrPreview
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 import io.github.ranzlappen.synthpiano.ui.components.Oscilloscope
+import kotlinx.coroutines.launch
+import kotlin.math.log10
+import kotlin.math.pow
+
+/** MIDI note for the C audition button (middle C). */
+private const val AUDITION_MIDI = 60
 
 /**
- * The SOUND tab: full-page sound design surface. Three glass cards laid
- * out horizontally on landscape (wide screens) and stacked on narrow:
- *   - Oscillator: 4 large waveform tiles.
- *   - Envelope: ADSR sliders + live shape preview.
- *   - Oscilloscope: live mono master-mix waveform.
- *
- * Persists waveform + ADSR through PreferencesRepository so the Perform
- * tab inherits whatever the player dialed in here.
+ * The SOUND tab: full-page sound design surface. Top row is the preset chip
+ * strip; below it the existing oscillator / envelope / oscilloscope cards
+ * (now with a one-shot "C" audition button beside the scope and an ADSR
+ * curve slider). A second row exposes the filter and voice-shaping (velocity
+ * sensitivity + glide) controls.
  */
 @Composable
 fun SoundTab(
     synth: SynthController,
     prefs: PreferencesRepository,
+    presets: PresetRepository,
     modifier: Modifier = Modifier,
 ) {
     val waveform by synth.waveform.collectAsState()
     val adsr by synth.adsr.collectAsState()
+    val filter by synth.filter.collectAsState()
+    val voice by synth.voiceShaping.collectAsState()
+    val userPresets by presets.userPresets.collectAsState(initial = emptyList())
+    val selectedPresetName by prefs.lastPresetName.collectAsState(initial = null)
 
     LaunchedEffect(waveform) { prefs.setWaveform(waveform) }
     LaunchedEffect(adsr) { prefs.setAdsr(adsr) }
+    LaunchedEffect(filter) { prefs.setFilter(filter) }
+    LaunchedEffect(voice) { prefs.setVoiceShaping(voice) }
 
     val widthDp = LocalConfiguration.current.screenWidthDp
-    // 700dp was too narrow — 800-900dp landscape phones were squeezing the
-    // three cards to the point where Triangle/Sustain clipped. Push the
-    // threshold up so phones in landscape stack vertically with outer scroll.
     val wide = widthDp >= 900
 
-    if (wide) {
-        Row(
-            modifier = modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        PresetCard(
+            synth = synth,
+            presets = presets,
+            userPresets = userPresets,
+            selectedName = selectedPresetName,
+            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+        )
+
+        if (wide) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OscillatorCard(
+                    waveform = waveform,
+                    onSelect = synth::setWaveform,
+                    modifier = Modifier.weight(1f),
+                )
+                EnvelopeCard(
+                    adsr = adsr,
+                    onAdsr = {
+                        synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve)
+                    },
+                    modifier = Modifier.weight(1.5f),
+                )
+                OscilloscopeCard(
+                    synth = synth,
+                    modifier = Modifier.weight(1.2f).height(280.dp),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                FilterCard(
+                    filter = filter,
+                    onFilter = { synth.setFilter(it.cutoffHz, it.resonance) },
+                    modifier = Modifier.weight(1f),
+                )
+                VoiceShapingCard(
+                    voice = voice,
+                    onVoice = { v ->
+                        synth.setVelocitySensitivity(v.velocitySensitivity)
+                        synth.setGlideSec(v.glideSec)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
             OscillatorCard(
                 waveform = waveform,
                 onSelect = synth::setWaveform,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
             )
             EnvelopeCard(
                 adsr = adsr,
-                onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec) },
-                modifier = Modifier.weight(1.5f).fillMaxHeight(),
+                onAdsr = {
+                    synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve)
+                },
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
             )
             OscilloscopeCard(
                 synth = synth,
-                modifier = Modifier.weight(1.2f).fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth().height(220.dp),
+            )
+            FilterCard(
+                filter = filter,
+                onFilter = { synth.setFilter(it.cutoffHz, it.resonance) },
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+            )
+            VoiceShapingCard(
+                voice = voice,
+                onVoice = { v ->
+                    synth.setVelocitySensitivity(v.velocitySensitivity)
+                    synth.setGlideSec(v.glideSec)
+                },
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
             )
         }
+    }
+}
+
+@Composable
+private fun PresetCard(
+    synth: SynthController,
+    presets: PresetRepository,
+    userPresets: List<SoundPreset>,
+    selectedName: String?,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    var saveDialogOpen by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<SoundPreset?>(null) }
+    var menuFor by remember { mutableStateOf<SoundPreset?>(null) }
+
+    GlassCard(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    "Presets",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { saveDialogOpen = true }) {
+                    Text("Save current as…")
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BuiltInPresets.all.forEach { p ->
+                    PresetChip(
+                        preset = p,
+                        selected = p.name == selectedName,
+                        onClick = { scope.launch { presets.apply(synth, p) } },
+                    )
+                }
+                userPresets.forEach { p ->
+                    Box {
+                        PresetChip(
+                            preset = p,
+                            selected = p.name == selectedName,
+                            onClick = { scope.launch { presets.apply(synth, p) } },
+                            onLongClick = { menuFor = p },
+                        )
+                        DropdownMenu(
+                            expanded = menuFor?.name == p.name,
+                            onDismissRequest = { menuFor = null },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Rename") },
+                                onClick = {
+                                    renameTarget = p
+                                    menuFor = null
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete") },
+                                onClick = {
+                                    scope.launch { presets.deleteUser(p.name) }
+                                    menuFor = null
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (saveDialogOpen) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { saveDialogOpen = false },
+            title = { Text("Save preset") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val trimmed = name.trim()
+                        if (trimmed.isNotEmpty()) {
+                            scope.launch {
+                                presets.saveUser(presets.snapshot(synth, trimmed))
+                            }
+                            saveDialogOpen = false
+                        }
+                    },
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { saveDialogOpen = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    renameTarget?.let { target ->
+        var name by remember(target.name) { mutableStateOf(target.name) }
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("Rename preset") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch { presets.renameUser(target.name, name) }
+                        renameTarget = null
+                    },
+                ) { Text("Rename") }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTarget = null }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PresetChip(
+    preset: SoundPreset,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+) {
+    val container = if (selected) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+    val onContainer = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                      else MaterialTheme.colorScheme.onSurface
+    val clickMod = if (onLongClick != null) {
+        Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
     } else {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            OscillatorCard(
-                waveform = waveform,
-                onSelect = synth::setWaveform,
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-            )
-            EnvelopeCard(
-                adsr = adsr,
-                onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec) },
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-            )
-            OscilloscopeCard(
-                synth = synth,
-                modifier = Modifier.fillMaxWidth().height(180.dp),
+        Modifier.clickable(onClick = onClick)
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(container)
+            .then(clickMod)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(
+            preset.name,
+            style = MaterialTheme.typography.labelLarge,
+            color = onContainer,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (preset.builtin) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "★",
+                style = MaterialTheme.typography.labelMedium,
+                color = onContainer.copy(alpha = 0.6f),
             )
         }
     }
@@ -241,7 +494,6 @@ private fun WaveformIcon(
                 )
             }
             Waveform.PIANO -> {
-                // A decaying-cosine glyph evokes a plucked string envelope.
                 val path = androidx.compose.ui.graphics.Path()
                 path.moveTo(0f, mid)
                 val steps = 48
@@ -264,8 +516,8 @@ private fun WaveformIcon(
 
 @Composable
 private fun EnvelopeCard(
-    adsr: io.github.ranzlappen.synthpiano.audio.Adsr,
-    onAdsr: (io.github.ranzlappen.synthpiano.audio.Adsr) -> Unit,
+    adsr: Adsr,
+    onAdsr: (Adsr) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier) {
@@ -304,6 +556,13 @@ private fun EnvelopeCard(
                 isSeconds = true,
                 onChange = { onAdsr(adsr.copy(releaseSec = it)) },
             )
+            EnvelopeSlider(
+                label = "Curve",
+                value = adsr.curve,
+                range = -1f..1f,
+                isSeconds = false,
+                onChange = { onAdsr(adsr.copy(curve = it)) },
+            )
         }
     }
 }
@@ -315,6 +574,10 @@ private fun EnvelopeSlider(
     range: ClosedFloatingPointRange<Float>,
     isSeconds: Boolean,
     onChange: (Float) -> Unit,
+    valueFormatter: (Float) -> String = { v ->
+        if (isSeconds) "%d ms".format((v * 1000f).toInt())
+        else "%.2f".format(v)
+    },
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -325,7 +588,7 @@ private fun EnvelopeSlider(
             label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(64.dp),
+            modifier = Modifier.width(72.dp),
         )
         Slider(
             value = value,
@@ -339,11 +602,10 @@ private fun EnvelopeSlider(
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = if (isSeconds) "%d ms".format((value * 1000f).toInt())
-                   else "%.2f".format(value),
+            text = valueFormatter(value),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.width(56.dp),
+            modifier = Modifier.width(64.dp),
             textAlign = TextAlign.End,
         )
     }
@@ -356,7 +618,18 @@ private fun OscilloscopeCard(
 ) {
     GlassCard(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(R.string.sound_oscilloscope), style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    stringResource(R.string.sound_oscilloscope),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                AuditionKeyButton(synth = synth)
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -371,6 +644,110 @@ private fun OscilloscopeCard(
                 )
             }
             Spacer(Modifier.height(2.dp))
+        }
+    }
+}
+
+@Composable
+private fun AuditionKeyButton(synth: SynthController) {
+    var pressed by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        onDispose {
+            if (pressed) {
+                synth.noteOff(AUDITION_MIDI)
+                pressed = false
+            }
+        }
+    }
+    val container = if (pressed) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+    val onContainer = if (pressed) MaterialTheme.colorScheme.onPrimary
+                      else MaterialTheme.colorScheme.onSurface
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(container)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    pressed = true
+                    synth.noteOn(AUDITION_MIDI)
+                    waitForUpOrCancellation()
+                    synth.noteOff(AUDITION_MIDI)
+                    pressed = false
+                }
+            },
+    ) {
+        Text(
+            "C",
+            style = MaterialTheme.typography.titleLarge,
+            color = onContainer,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun FilterCard(
+    filter: FilterSettings,
+    onFilter: (FilterSettings) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    GlassCard(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Filter", style = MaterialTheme.typography.titleMedium)
+            // Cutoff is mapped to a logarithmic scale so the slider feels even
+            // across the audible range (50 Hz to 18 kHz).
+            val logMin = log10(50f)
+            val logMax = log10(18000f)
+            val logVal = log10(filter.cutoffHz.coerceIn(50f, 18000f))
+            EnvelopeSlider(
+                label = "Cutoff",
+                value = logVal,
+                range = logMin..logMax,
+                isSeconds = false,
+                onChange = { l -> onFilter(filter.copy(cutoffHz = 10f.pow(l))) },
+                valueFormatter = { l ->
+                    val hz = 10f.pow(l)
+                    if (hz >= 1000f) "%.1f kHz".format(hz / 1000f) else "%d Hz".format(hz.toInt())
+                },
+            )
+            EnvelopeSlider(
+                label = "Resonance",
+                value = filter.resonance,
+                range = 0f..1f,
+                isSeconds = false,
+                onChange = { onFilter(filter.copy(resonance = it)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceShapingCard(
+    voice: VoiceShaping,
+    onVoice: (VoiceShaping) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    GlassCard(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Voice", style = MaterialTheme.typography.titleMedium)
+            EnvelopeSlider(
+                label = "Velocity",
+                value = voice.velocitySensitivity,
+                range = 0f..1f,
+                isSeconds = false,
+                onChange = { onVoice(voice.copy(velocitySensitivity = it)) },
+            )
+            EnvelopeSlider(
+                label = "Glide",
+                value = voice.glideSec,
+                range = 0f..0.5f,
+                isSeconds = true,
+                onChange = { onVoice(voice.copy(glideSec = it)) },
+            )
         }
     }
 }

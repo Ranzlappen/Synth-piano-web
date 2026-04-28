@@ -72,6 +72,30 @@ Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetMasterAmp(JNIEnv
     if (auto* e = asEngine(h)) e->setMasterAmp(amp);
 }
 
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetEnvelopeCurve(JNIEnv*, jobject, jlong h,
+                                                                                jfloat curve) {
+    if (auto* e = asEngine(h)) e->setEnvelopeCurve(curve);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetFilter(JNIEnv*, jobject, jlong h,
+                                                                        jfloat cutoffHz, jfloat resonance) {
+    if (auto* e = asEngine(h)) e->setFilter(cutoffHz, resonance);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetVelocitySensitivity(JNIEnv*, jobject,
+                                                                                      jlong h, jfloat v) {
+    if (auto* e = asEngine(h)) e->setVelocitySensitivity(v);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetGlideSec(JNIEnv*, jobject, jlong h,
+                                                                          jfloat s) {
+    if (auto* e = asEngine(h)) e->setGlideSec(s);
+}
+
 JNIEXPORT jint JNICALL
 Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeGetSampleRate(JNIEnv*, jobject, jlong h) {
     return asEngine(h) ? asEngine(h)->sampleRate() : 0;

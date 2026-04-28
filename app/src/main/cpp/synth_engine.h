@@ -1,6 +1,7 @@
 #pragma once
 
 #include "envelope.h"
+#include "filter.h"
 #include "oscillator.h"
 #include "voice.h"
 
@@ -45,6 +46,23 @@ public:
         adsr_.decay.store(decaySec, std::memory_order_relaxed);
         adsr_.sustain.store(sustain, std::memory_order_relaxed);
         adsr_.release.store(releaseSec, std::memory_order_relaxed);
+    }
+
+    void setEnvelopeCurve(float curve) {
+        adsr_.curve.store(curve, std::memory_order_relaxed);
+    }
+
+    void setFilter(float cutoffHz, float resonance) {
+        filter_.cutoffHz.store(cutoffHz, std::memory_order_relaxed);
+        filter_.resonance.store(resonance, std::memory_order_relaxed);
+    }
+
+    void setVelocitySensitivity(float v) {
+        velocitySensitivity_.store(v, std::memory_order_relaxed);
+    }
+
+    void setGlideSec(float s) {
+        glideSec_.store(s, std::memory_order_relaxed);
     }
 
     int32_t sampleRate() const { return sampleRate_.load(std::memory_order_relaxed); }
@@ -115,11 +133,15 @@ private:
     std::shared_ptr<oboe::AudioStream> stream_;
     std::array<Voice, kMaxVoices> voices_{};
     AdsrParams adsr_{};
+    FilterParams filter_{};
     std::atomic<int32_t> waveform_{static_cast<int32_t>(Waveform::Sine)};
     std::atomic<float> masterAmp_{0.7f};
+    std::atomic<float> velocitySensitivity_{1.0f};
+    std::atomic<float> glideSec_{0.0f};
     std::atomic<int32_t> sampleRate_{48000};
     std::atomic<float> peak_{0.0f};
     uint64_t voiceTickCount_{0};  // monotonic for voice age
+    float lastTargetHz_{440.0f};  // audio-thread only; previous note's freq for glide
 };
 
 } // namespace synthpiano

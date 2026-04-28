@@ -1,5 +1,7 @@
 #include "envelope.h"
 
+#include <cmath>
+
 namespace synthpiano {
 
 namespace {
@@ -9,6 +11,13 @@ constexpr float kMinSeconds = 0.001f;
 float secondsToInc(float seconds, float delta, float sampleRate) {
     const float s = (seconds < kMinSeconds) ? kMinSeconds : seconds;
     return delta / (s * sampleRate);
+}
+
+inline float shapeLevel(float level, float curve) {
+    if (curve > -1e-3f && curve < 1e-3f) return level;
+    if (level <= 0.0f) return 0.0f;
+    if (level >= 1.0f) return 1.0f;
+    return std::pow(level, std::exp2(curve * 2.0f));
 }
 } // namespace
 
@@ -65,7 +74,7 @@ float Envelope::tick(const AdsrParams& params) {
                 level_ = target_;
                 enterStage(Stage::Decay, params);
             }
-            break;
+            return shapeLevel(level_, params.curve.load(std::memory_order_relaxed));
         case Stage::Decay:
             level_ += increment_;  // negative or zero
             if ((increment_ <= 0.0f && level_ <= target_) ||
@@ -73,18 +82,19 @@ float Envelope::tick(const AdsrParams& params) {
                 level_ = target_;
                 enterStage(Stage::Sustain, params);
             }
-            break;
+            return level_;
         case Stage::Sustain:
             // Track live sustain changes.
             level_ = params.sustain.load(std::memory_order_relaxed);
-            break;
+            return level_;
         case Stage::Release:
             level_ += increment_;
             if (level_ <= 0.0f) {
                 level_ = 0.0f;
                 enterStage(Stage::Idle, params);
+                return 0.0f;
             }
-            break;
+            return shapeLevel(level_, params.curve.load(std::memory_order_relaxed));
     }
     return level_;
 }

@@ -10,6 +10,7 @@ find_package(oboe REQUIRED CONFIG)
 add_library(synthpiano SHARED
     oscillator.cpp
     envelope.cpp
+    filter.cpp
     voice.cpp
     synth_engine.cpp
     jni_bridge.cpp

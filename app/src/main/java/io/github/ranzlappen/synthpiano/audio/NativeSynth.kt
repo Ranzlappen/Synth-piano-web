@@ -45,6 +45,18 @@ class NativeSynth {
     fun setMasterAmp(amp: Float) =
         nativeSetMasterAmp(handle, amp.coerceIn(0f, 1f))
 
+    fun setEnvelopeCurve(curve: Float) =
+        nativeSetEnvelopeCurve(handle, curve.coerceIn(-1f, 1f))
+
+    fun setFilter(cutoffHz: Float, resonance: Float) =
+        nativeSetFilter(handle, cutoffHz.coerceIn(20f, 20000f), resonance.coerceIn(0f, 1f))
+
+    fun setVelocitySensitivity(v: Float) =
+        nativeSetVelocitySensitivity(handle, v.coerceIn(0f, 1f))
+
+    fun setGlideSec(s: Float) =
+        nativeSetGlideSec(handle, s.coerceIn(0f, 0.5f))
+
     fun sampleRate(): Int = nativeGetSampleRate(handle)
 
     /** Returns peak magnitude since last call, in [0, 1]. */
@@ -87,6 +99,11 @@ class NativeSynth {
         handle: Long, attack: Float, decay: Float, sustain: Float, release: Float
     )
     private external fun nativeSetMasterAmp(handle: Long, amp: Float)
+
+    private external fun nativeSetEnvelopeCurve(handle: Long, curve: Float)
+    private external fun nativeSetFilter(handle: Long, cutoffHz: Float, resonance: Float)
+    private external fun nativeSetVelocitySensitivity(handle: Long, v: Float)
+    private external fun nativeSetGlideSec(handle: Long, s: Float)
 
     private external fun nativeGetSampleRate(handle: Long): Int
     private external fun nativeGetMasterPeak(handle: Long): Float

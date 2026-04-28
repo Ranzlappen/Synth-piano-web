@@ -143,9 +143,13 @@ void SynthEngine::applyEvent(const NoteEvent& e) {
             Voice* v = findFreeVoice(e.midiNote);
             if (!v) return;
             const auto wf = static_cast<Waveform>(waveform_.load(std::memory_order_relaxed));
+            const float glide = glideSec_.load(std::memory_order_relaxed);
+            const float velSens = velocitySensitivity_.load(std::memory_order_relaxed);
             if (v->isActive()) v->hardKill();
-            v->noteOn(e.midiNote, e.velocity, wf, adsr_);
+            v->noteOn(e.midiNote, e.velocity, wf, adsr_, glide, velSens, lastTargetHz_);
             v->setAge(++voiceTickCount_);
+            lastTargetHz_ = 440.0f * std::pow(2.0f,
+                (static_cast<float>(e.midiNote) - 69.0f) / 12.0f);
             break;
         }
         case NoteEvent::Kind::NoteOff: {
@@ -181,7 +185,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
     drainEvents();
 
     for (auto& v : voices_) {
-        v.renderAdd(scratch, numFrames, adsr_);
+        v.renderAdd(scratch, numFrames, adsr_, filter_);
     }
 
     const float amp = masterAmp_.load(std::memory_order_relaxed);

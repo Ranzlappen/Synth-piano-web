@@ -4,6 +4,7 @@ import android.app.Application
 import io.github.ranzlappen.synthpiano.audio.NativeSynth
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
+import io.github.ranzlappen.synthpiano.data.PresetRepository
 
 class SynthApp : Application() {
 
@@ -13,11 +14,15 @@ class SynthApp : Application() {
     lateinit var prefs: PreferencesRepository
         private set
 
+    lateinit var presets: PresetRepository
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         synth = SynthController(NativeSynth())
         prefs = PreferencesRepository(applicationContext)
+        presets = PresetRepository(prefs)
     }
 
     companion object {
