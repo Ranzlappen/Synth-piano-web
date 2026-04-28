@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,14 +18,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
@@ -56,6 +60,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.SynthController
@@ -405,6 +410,14 @@ private fun StepRow(
 ) {
     val bg = if (isCurrent) MaterialTheme.colorScheme.primaryContainer
              else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+
+    var durText by remember { mutableStateOf("%.2f".format(step.durationBeats)) }
+    LaunchedEffect(step.durationBeats) {
+        if (durText.toFloatOrNull() != step.durationBeats) {
+            durText = "%.2f".format(step.durationBeats)
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -415,25 +428,93 @@ private fun StepRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text("#${index + 1}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(36.dp))
+
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (step.noteNames.isEmpty()) {
+                Text(
+                    stringResource(R.string.score_rest),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+            }
+            step.noteNames.forEachIndexed { i, name ->
+                NoteChipField(
+                    value = name,
+                    onChange = { v ->
+                        val next = step.noteNames.toMutableList().also { it[i] = v }
+                        onChange(step.copy(noteNames = next))
+                    },
+                    onRemove = {
+                        val next = step.noteNames.toMutableList().also { it.removeAt(i) }
+                        onChange(step.copy(noteNames = next))
+                    },
+                )
+            }
+            IconButton(
+                onClick = {
+                    val newName = step.noteNames.lastOrNull() ?: "C4"
+                    onChange(step.copy(noteNames = step.noteNames + newName))
+                },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.score_add_note))
+            }
+        }
+
         OutlinedTextField(
-            value = step.noteNames.joinToString(","),
+            value = durText,
             onValueChange = { v ->
-                val names = v.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                onChange(step.copy(noteNames = names))
+                durText = v
+                v.toFloatOrNull()?.takeIf { it > 0f }
+                    ?.let { onChange(step.copy(durationBeats = it)) }
             },
-            label = { Text(stringResource(R.string.score_notes)) },
-            modifier = Modifier.weight(1f),
-            singleLine = true,
-        )
-        OutlinedTextField(
-            value = "%.2f".format(step.durationBeats),
-            onValueChange = { it.toFloatOrNull()?.let { v -> onChange(step.copy(durationBeats = v)) } },
             label = { Text(stringResource(R.string.score_beats)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.width(96.dp),
             singleLine = true,
         )
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.score_delete_step))
+        }
+    }
+}
+
+@Composable
+private fun NoteChipField(
+    value: String,
+    onChange: (String) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var text by remember { mutableStateOf(value) }
+    LaunchedEffect(value) {
+        if (text != value) text = value
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { v ->
+                text = v
+                onChange(v)
+            },
+            modifier = Modifier.width(72.dp),
+            singleLine = true,
+        )
+        IconButton(
+            onClick = onRemove,
+            modifier = Modifier.size(28.dp),
+        ) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = stringResource(R.string.score_remove_note),
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }

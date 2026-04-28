@@ -62,6 +62,11 @@
     <string name="score_beats">Beats</string>
     <string name="score_add_step">Add step</string>
     <string name="score_delete_step">Delete step</string>
+    <string name="score_rest">Rest</string>
+    <string name="score_add_note">Add note</string>
+    <string name="score_remove_note">Remove note</string>
+    <string name="score_zoom_in">Zoom in</string>
+    <string name="score_zoom_out">Zoom out</string>
 
     <!-- Settings -->
     <string name="settings_audio">Audio</string>

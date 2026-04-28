@@ -20,6 +20,10 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * Each entry's `note` may also be a list of names for chords. New v2+
  * scores may add a top-level `version` field; the parser tolerates both.
+ *
+ * The parser also accepts a bare top-level array (`[ {...}, {...} ]`) as
+ * shorthand for `{"notes": [...]}` and recognises the literal `"rest"` as
+ * an empty-noteNames step.
  */
 
 @Serializable
@@ -86,24 +90,37 @@ fun parseScoreJson(text: String): Score {
     } catch (t: Throwable) {
         throw IllegalArgumentException("Invalid JSON: ${t.message}")
     }
-    val obj = root as? JsonObject
-        ?: throw IllegalArgumentException("Score JSON must be an object")
 
-    val notesElem = obj["notes"]
-        ?: throw IllegalArgumentException("Missing 'notes' array")
-    val notesArr = notesElem as? JsonArray
-        ?: throw IllegalArgumentException("'notes' must be an array")
+    val notesArr: JsonArray
+    val titleStr: String?
+    val tempoInt: Int?
+    val versionInt: Int
 
-    val steps = notesArr.mapIndexed { idx, e ->
-        parseStep(e, idx)
+    when (root) {
+        is JsonArray -> {
+            notesArr = root
+            titleStr = null
+            tempoInt = null
+            versionInt = 1
+        }
+        is JsonObject -> {
+            notesArr = (root["notes"] as? JsonArray)
+                ?: throw IllegalArgumentException("Missing 'notes' array")
+            titleStr = (root["title"] as? JsonPrimitive)?.contentOrNull
+            tempoInt = (root["tempo"] as? JsonPrimitive)?.intOrNullSafe()
+                ?: (root["tempoBpm"] as? JsonPrimitive)?.intOrNullSafe()
+            versionInt = (root["version"] as? JsonPrimitive)?.intOrNullSafe() ?: 1
+        }
+        else -> throw IllegalArgumentException("Score JSON must be an object or array")
     }
+
+    val steps = notesArr.mapIndexed { idx, e -> parseStep(e, idx) }
 
     return Score(
         notes = steps,
-        title = (obj["title"] as? JsonPrimitive)?.contentOrNull,
-        tempoBpm = (obj["tempo"] as? JsonPrimitive)?.intOrNullSafe()
-            ?: (obj["tempoBpm"] as? JsonPrimitive)?.intOrNullSafe(),
-        version = (obj["version"] as? JsonPrimitive)?.intOrNullSafe() ?: 1,
+        title = titleStr,
+        tempoBpm = tempoInt,
+        version = versionInt,
     )
 }
 
@@ -113,11 +130,14 @@ private fun parseStep(e: JsonElement, idx: Int): ScoreStep {
     val noteElem = obj["note"]
         ?: obj["notes"]
         ?: throw IllegalArgumentException("Step #$idx missing 'note'")
-    val names = when (noteElem) {
+    val rawNames = when (noteElem) {
         is JsonPrimitive -> listOf(noteElem.content)
         is JsonArray -> noteElem.map { (it as JsonPrimitive).content }
         else -> throw IllegalArgumentException("Step #$idx 'note' must be string or array")
-    }.filter { it.isNotBlank() }
+    }
+    val names = rawNames
+        .map { it.trim() }
+        .filter { it.isNotBlank() && !it.equals("rest", ignoreCase = true) }
 
     val durElem = obj["duration"]
         ?: obj["durationBeats"]
@@ -136,10 +156,10 @@ fun Score.toJsonString(prettyPrint: Boolean = true): String {
         put("notes", buildJsonArray {
             for (step in notes) {
                 add(buildJsonObject {
-                    if (step.noteNames.size == 1) {
-                        put("note", JsonPrimitive(step.noteNames.first()))
-                    } else {
-                        put("note", buildJsonArray { step.noteNames.forEach { add(JsonPrimitive(it)) } })
+                    when {
+                        step.noteNames.isEmpty() -> put("note", JsonPrimitive("rest"))
+                        step.noteNames.size == 1 -> put("note", JsonPrimitive(step.noteNames.first()))
+                        else -> put("note", buildJsonArray { step.noteNames.forEach { add(JsonPrimitive(it)) } })
                     }
                     put("duration", JsonPrimitive(step.durationBeats))
                 })

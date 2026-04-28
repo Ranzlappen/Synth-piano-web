@@ -7,12 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -42,7 +39,6 @@ import io.github.ranzlappen.synthpiano.ui.theme.SourceHwKey
 import io.github.ranzlappen.synthpiano.ui.theme.SourceMidi
 import io.github.ranzlappen.synthpiano.ui.theme.SourceScore
 import io.github.ranzlappen.synthpiano.ui.theme.SourceTouch
-import kotlinx.coroutines.launch
 
 /** Lowest white-key MIDI note rendered (A0). */
 const val PIANO_FIRST_MIDI: Int = 21
@@ -53,9 +49,9 @@ const val PIANO_WHITE_KEY_COUNT: Int = 52
 /** Width of one white key at 1.0× zoom, in dp. */
 val PIANO_WHITE_KEY_DP: Dp = 56.dp
 
-/** Pinch-zoom clamps. */
-private const val ZOOM_MIN = 0.5f
-private const val ZOOM_MAX = 2.0f
+/** Zoom clamps for the +/- buttons in PerformTab. */
+internal const val ZOOM_MIN = 0.5f
+internal const val ZOOM_MAX = 2.0f
 
 private val WHITE_INDEX_TO_MIDI: IntArray = IntArray(PIANO_WHITE_KEY_COUNT) { i ->
     when (i) {
@@ -98,26 +94,19 @@ fun scrollPxForC(midiC: Int, whiteKeyPx: Float): Int {
 }
 
 /**
- * Multi-touch piano keyboard with per-source key coloring and pinch zoom.
+ * Multi-touch piano keyboard with per-source key coloring.
  * Renders a fixed-pitch, full-piano-range Canvas wrapped in a horizontal
  * scroll container so the user can pan from A0 to C8.
  *
  * Each pointer is mapped to one MIDI note; sliding between keys releases
  * the previous note and triggers the new one. Pressed keys color according
- * to which input device fired them.
- *
- * Two-finger pinch directly on the keyboard re-scales white-key width
- * within [ZOOM_MIN]..[ZOOM_MAX]. The key under the pinch centroid stays
- * anchored under the user's fingers. Note-on tracking is suspended while
- * pinching; in-flight notes are released immediately when the second
- * finger lands.
+ * to which input device fired them. N-finger play is unrestricted — there
+ * is no in-keyboard zoom gesture; zoom is driven by external buttons.
  *
  * @param scrollState hoisted scroll state so the parent can derive the
  * leftmost visible C and persist scroll position.
  * @param heldBySource Map of pressed MIDI note → source for coloring.
- * @param zoom Current persisted zoom factor; serves as the initial value.
- * @param onZoomChange Invoked once at the end of each pinch gesture with
- * the new clamped zoom factor for persistence.
+ * @param zoom Current zoom factor (clamped to [ZOOM_MIN]..[ZOOM_MAX]).
  */
 @Composable
 fun PianoKeyboard(
@@ -125,39 +114,26 @@ fun PianoKeyboard(
     scrollState: ScrollState,
     heldBySource: Map<Int, NoteSource>,
     zoom: Float,
-    onZoomChange: (Float) -> Unit,
     onNoteOn: (Int) -> Unit,
     onNoteOff: (Int) -> Unit,
 ) {
     val whiteKeySemitones = listOf(0, 2, 4, 5, 7, 9, 11)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val coroutineScope = rememberCoroutineScope()
 
     val pointerNotes = remember { mutableMapOf<Long, Int>() }
     var size by remember { mutableStateOf(IntSize.Zero) }
-
-    // Live zoom is seeded once and then driven by gestures. External
-    // (DataStore) zoom changes are synced in via LaunchedEffect so the
-    // state instance stays stable across recompositions — important
-    // because the pointerInput closure captures it.
-    var liveZoom by remember { mutableFloatStateOf(zoom.coerceIn(ZOOM_MIN, ZOOM_MAX)) }
-    LaunchedEffect(zoom) {
-        val target = zoom.coerceIn(ZOOM_MIN, ZOOM_MAX)
-        if (target != liveZoom) liveZoom = target
-    }
 
     // Forward latest note callbacks via rememberUpdatedState so the
     // long-lived pointerInput block always invokes the freshest closure
     // (which reads current sticky/held modifier sets in PerformTab).
     val currentOnNoteOn by rememberUpdatedState(onNoteOn)
     val currentOnNoteOff by rememberUpdatedState(onNoteOff)
-    val currentOnZoomChange by rememberUpdatedState(onZoomChange)
 
     val firstMidiNote = PIANO_FIRST_MIDI
     val whiteKeyCount = PIANO_WHITE_KEY_COUNT
 
-    val effectiveKeyDp = PIANO_WHITE_KEY_DP * liveZoom
+    val effectiveKeyDp = PIANO_WHITE_KEY_DP * zoom.coerceIn(ZOOM_MIN, ZOOM_MAX)
     val totalWidthDp = effectiveKeyDp * whiteKeyCount
 
     fun whiteKeyIndexFromX(x: Float, w: Float): Int {
@@ -206,19 +182,6 @@ fun PianoKeyboard(
         return whiteIndexToMidi(whiteKeyIndexFromX(x, w))
     }
 
-    // Centroid-anchored zoom: keep the key under the pinch centroid stable
-    // by adjusting scroll in proportion with the zoom step.
-    fun applyPinchDelta(centroidX: Float, step: Float) {
-        val newZoom = (liveZoom * step).coerceIn(ZOOM_MIN, ZOOM_MAX)
-        if (newZoom == liveZoom) return
-        val ratio = newZoom / liveZoom
-        val newScroll = ((scrollState.value + centroidX) * ratio - centroidX)
-            .toInt()
-            .coerceAtLeast(0)
-        liveZoom = newZoom
-        coroutineScope.launch { scrollState.scrollTo(newScroll) }
-    }
-
     Box(
         modifier = modifier
             .horizontalScroll(scrollState),
@@ -229,7 +192,7 @@ fun PianoKeyboard(
                 .fillMaxHeight()
                 .onSizeChanged { size = it }
                 .pointerInput(Unit) {
-                    keyboardGestureLoop(
+                    keyboardPlayLoop(
                         onDown = { id, pos ->
                             val midi = midiAt(pos.x, pos.y, size.width.toFloat(), size.height.toFloat())
                             pointerNotes[id]?.let { currentOnNoteOff(it) }
@@ -248,9 +211,6 @@ fun PianoKeyboard(
                         onUp = { id ->
                             pointerNotes.remove(id)?.let { currentOnNoteOff(it) }
                         },
-                        pointerNotes = pointerNotes,
-                        onPinchDelta = { centroid, step -> applyPinchDelta(centroid.x, step) },
-                        onPinchEnd = { currentOnZoomChange(liveZoom) },
                     )
                 },
         ) {
@@ -324,62 +284,20 @@ private fun sourceColor(s: NoteSource): Color = when (s) {
     NoteSource.HW_KEYBOARD -> SourceHwKey
 }
 
-private enum class GestureMode { Play, Zoom }
-
 /**
- * Multi-touch arbitration loop. Single pointer = play (handled per-change
- * by [handleChange]); two or more = zoom (centroid distance drives
- * [onPinchDelta]). Mode transitions release any in-flight notes so users
- * never get stuck notes on pinch start.
+ * Play-only multi-touch loop: every active pointer maps to one note.
+ * No mode switching, so two-, three-, four-finger play all sustain.
  */
-private suspend fun PointerInputScope.keyboardGestureLoop(
+private suspend fun PointerInputScope.keyboardPlayLoop(
     onDown: (Long, Offset) -> Unit,
     onMove: (Long, Offset) -> Unit,
     onUp: (Long) -> Unit,
-    pointerNotes: MutableMap<Long, Int>,
-    onPinchDelta: (centroid: Offset, step: Float) -> Unit,
-    onPinchEnd: () -> Unit,
 ) {
     awaitPointerEventScope {
-        var mode = GestureMode.Play
-        var lastDist = 0f
         while (true) {
             val event = awaitPointerEvent(PointerEventPass.Main)
-            val active = event.changes.filter { it.pressed }
-
-            if (mode == GestureMode.Play && active.size >= 2) {
-                // Second finger landed: cancel ALL in-flight notes (walk
-                // pointerNotes — event.changes only contains current frame's
-                // pointers).
-                pointerNotes.keys.toList().forEach { id -> onUp(id) }
-                pointerNotes.clear()
-                lastDist = (active[0].position - active[1].position).getDistance()
-                mode = GestureMode.Zoom
-                event.changes.forEach { it.consume() }
-                continue
-            }
-            if (mode == GestureMode.Zoom && active.size < 2) {
-                onPinchEnd()
-                mode = GestureMode.Play
-                event.changes.forEach { it.consume() }
-                continue
-            }
-
-            when (mode) {
-                GestureMode.Play -> for (change in event.changes) {
-                    handleChange(change, change.id.value, onDown, onMove, onUp)
-                }
-                GestureMode.Zoom -> {
-                    val a = active[0].position
-                    val b = active[1].position
-                    val d = (a - b).getDistance()
-                    if (lastDist > 0f && d > 0f) {
-                        val centroid = Offset((a.x + b.x) / 2f, (a.y + b.y) / 2f)
-                        onPinchDelta(centroid, d / lastDist)
-                    }
-                    lastDist = d
-                    event.changes.forEach { it.consume() }
-                }
+            for (change in event.changes) {
+                handleChange(change, change.id.value, onDown, onMove, onUp)
             }
         }
     }
