@@ -62,6 +62,7 @@ class PresetRepository(private val prefs: PreferencesRepository) {
             cutoffHz = f.cutoffHz, resonance = f.resonance,
             velocitySensitivity = v.velocitySensitivity, glideSec = v.glideSec,
             masterAmp = synth.masterAmp.value,
+            polyCompensation = synth.polyComp.value,
             builtin = false,
         )
     }
@@ -74,6 +75,7 @@ class PresetRepository(private val prefs: PreferencesRepository) {
         synth.setVelocitySensitivity(preset.velocitySensitivity)
         synth.setGlideSec(preset.glideSec)
         synth.setMasterAmp(preset.masterAmp)
+        synth.setPolyCompensation(preset.polyCompensation)
         prefs.setLastPresetName(preset.name)
         prefs.setWaveform(preset.waveform)
         prefs.setAdsr(preset.adsr())

@@ -65,6 +65,13 @@ public:
         glideSec_.store(s, std::memory_order_relaxed);
     }
 
+    // Polyphonic compensation amount in [0, 1]. 0 = sum voices linearly
+    // (legacy, easy to clip on chords); 1 = scale by 1/sqrt(N) where N is
+    // active voice count (constant perceived loudness across chord sizes).
+    void setPolyCompensation(float v) {
+        polyComp_.store(v, std::memory_order_relaxed);
+    }
+
     int32_t sampleRate() const { return sampleRate_.load(std::memory_order_relaxed); }
     float masterPeak() {
         // Atomic exchange so each read returns the peak since last call,
@@ -138,10 +145,12 @@ private:
     std::atomic<float> masterAmp_{0.7f};
     std::atomic<float> velocitySensitivity_{1.0f};
     std::atomic<float> glideSec_{0.0f};
+    std::atomic<float> polyComp_{1.0f};
     std::atomic<int32_t> sampleRate_{48000};
     std::atomic<float> peak_{0.0f};
     uint64_t voiceTickCount_{0};  // monotonic for voice age
     float lastTargetHz_{440.0f};  // audio-thread only; previous note's freq for glide
+    float polyGainSmoothed_{1.0f}; // audio-thread only; one-pole smoother for voice-count gain
 };
 
 } // namespace synthpiano

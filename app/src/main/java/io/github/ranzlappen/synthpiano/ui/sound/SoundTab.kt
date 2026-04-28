@@ -90,6 +90,7 @@ fun SoundTab(
     val adsr by synth.adsr.collectAsState()
     val filter by synth.filter.collectAsState()
     val voice by synth.voiceShaping.collectAsState()
+    val polyComp by synth.polyComp.collectAsState()
     val userPresets by presets.userPresets.collectAsState(initial = emptyList())
     val selectedPresetName by prefs.lastPresetName.collectAsState(initial = null)
 
@@ -148,10 +149,12 @@ fun SoundTab(
                 )
                 VoiceShapingCard(
                     voice = voice,
+                    polyComp = polyComp,
                     onVoice = { v ->
                         synth.setVelocitySensitivity(v.velocitySensitivity)
                         synth.setGlideSec(v.glideSec)
                     },
+                    onPolyComp = synth::setPolyCompensation,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -179,10 +182,12 @@ fun SoundTab(
             )
             VoiceShapingCard(
                 voice = voice,
+                polyComp = polyComp,
                 onVoice = { v ->
                     synth.setVelocitySensitivity(v.velocitySensitivity)
                     synth.setGlideSec(v.glideSec)
                 },
+                onPolyComp = synth::setPolyCompensation,
                 modifier = Modifier.fillMaxWidth().wrapContentHeight(),
             )
         }
@@ -728,7 +733,9 @@ private fun FilterCard(
 @Composable
 private fun VoiceShapingCard(
     voice: VoiceShaping,
+    polyComp: Float,
     onVoice: (VoiceShaping) -> Unit,
+    onPolyComp: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier) {
@@ -747,6 +754,14 @@ private fun VoiceShapingCard(
                 range = 0f..0.5f,
                 isSeconds = true,
                 onChange = { onVoice(voice.copy(glideSec = it)) },
+            )
+            EnvelopeSlider(
+                label = "Poly Comp",
+                value = polyComp,
+                range = 0f..1f,
+                isSeconds = false,
+                onChange = onPolyComp,
+                valueFormatter = { v -> "%d%%".format((v * 100f).toInt()) },
             )
         }
     }

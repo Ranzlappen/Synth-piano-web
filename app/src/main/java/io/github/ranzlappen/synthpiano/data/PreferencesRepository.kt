@@ -39,6 +39,7 @@ private object Keys {
     val TEMPO_BPM = intPreferencesKey("tempo_bpm")
     val THEME_ACCENT = stringPreferencesKey("theme_accent")
     val CHORD_MOD_STICKY = stringPreferencesKey("chord_mod_sticky")
+    val CHORD_INV_STICKY = stringPreferencesKey("chord_inv_sticky")
     val PIANO_ZOOM = floatPreferencesKey("piano_zoom")
     val COMPOSER_EDITOR_W = floatPreferencesKey("composer_editor_weight")
     val COMPOSER_EDITOR_H = floatPreferencesKey("composer_editor_height")
@@ -115,6 +116,14 @@ class PreferencesRepository(private val context: Context) {
     val chordModSticky: Flow<Set<ChordQuality>> =
         context.dataStore.data.map { parseChordModifierSet(it[Keys.CHORD_MOD_STICKY]) }
 
+    /** Sticky chord inversion (LOCK row's inversion column). */
+    val chordInvSticky: Flow<ChordInversion> =
+        context.dataStore.data.map { prefs ->
+            runCatching {
+                ChordInversion.valueOf(prefs[Keys.CHORD_INV_STICKY] ?: ChordInversion.NONE.name)
+            }.getOrDefault(ChordInversion.NONE)
+        }
+
     /** Piano keyboard zoom factor (white-key width multiplier). */
     val pianoZoom: Flow<Float> =
         context.dataStore.data.map { (it[Keys.PIANO_ZOOM] ?: 1.0f).coerceIn(0.1f, 2.0f) }
@@ -173,6 +182,9 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setChordModSticky(s: Set<ChordQuality>) =
         edit { it[Keys.CHORD_MOD_STICKY] = s.toPrefString() }
 
+    suspend fun setChordInvSticky(inv: ChordInversion) =
+        edit { it[Keys.CHORD_INV_STICKY] = inv.name }
+
     suspend fun setPianoZoom(z: Float) =
         edit { it[Keys.PIANO_ZOOM] = z.coerceIn(0.1f, 2.0f) }
 
@@ -201,7 +213,7 @@ class PreferencesRepository(private val context: Context) {
         Keys.VEL_SENS, Keys.GLIDE_SEC, Keys.USER_PRESETS_JSON, Keys.LAST_PRESET_NAME,
         Keys.OCTAVE, Keys.KEYBOARD_LEFT_C, Keys.KEYMAP_JSON,
         Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT,
-        Keys.CHORD_MOD_STICKY, Keys.PIANO_ZOOM,
+        Keys.CHORD_MOD_STICKY, Keys.CHORD_INV_STICKY, Keys.PIANO_ZOOM,
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
     )
 }
