@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -16,7 +15,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -27,20 +25,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
+import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
 import io.github.ranzlappen.synthpiano.data.ChordInversion
 import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.applyInversion
 import io.github.ranzlappen.synthpiano.data.buildChordIntervals
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 /**
@@ -63,13 +59,12 @@ fun PerformTab(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
 
     val heldBySource by synth.heldBySource.collectAsState()
     val sticky by prefs.chordModSticky.collectAsState(initial = emptySet())
     val stickyInv by prefs.chordInvSticky.collectAsState(initial = ChordInversion.NONE)
     val zoom by prefs.pianoZoom.collectAsState(initial = 1.0f)
-    val savedLeftC by prefs.keyboardLeftC.collectAsState(initial = 48)
+    val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
 
     // Held (momentary) modifiers live only in memory; releasing the
     // SHIFT button or app exit clears them.
@@ -81,33 +76,6 @@ fun PerformTab(
     // press doesn't re-voice the live chord; releasing the same root lets
     // us turn off the exact notes we started.
     val activeChordsByRoot = remember { mutableStateMapOf<Int, List<Int>>() }
-
-    val scrollState = rememberScrollState()
-    val whiteKeyPx = with(density) { (PIANO_WHITE_KEY_DP * zoom).toPx() }
-
-    // Restore persisted scroll position once on first composition.
-    LaunchedEffect(Unit) {
-        val target = scrollPxForC(savedLeftC, whiteKeyPx)
-        if (scrollState.value != target) scrollState.scrollTo(target)
-    }
-
-    // When zoom changes via the +/- buttons, re-pin scroll so the
-    // previously-leftmost C stays leftmost across the resize.
-    LaunchedEffect(whiteKeyPx) {
-        scrollState.scrollTo(scrollPxForC(savedLeftC, whiteKeyPx))
-    }
-
-    // Persist scroll changes; re-key on whiteKeyPx so the persisted left-C
-    // reflects the current zoom.
-    LaunchedEffect(whiteKeyPx) {
-        androidx.compose.runtime.snapshotFlow { scrollState.value }
-            .drop(1)
-            .distinctUntilChanged()
-            .collect { px ->
-                val leftC = leftmostVisibleC(px, whiteKeyPx)
-                prefs.setKeyboardLeftC(leftC)
-            }
-    }
 
     val onPianoNoteOn: (Int) -> Unit = { rootMidi ->
         val effectiveInv = if (heldInv != ChordInversion.NONE) heldInv else stickyInv
@@ -208,13 +176,13 @@ fun PerformTab(
                 .heightIn(min = 160.dp)
                 .clip(RoundedCornerShape(12.dp)),
         ) {
-            PianoKeyboard(
-                modifier = Modifier.fillMaxSize(),
-                scrollState = scrollState,
+            KeyboardLayoutHost(
+                layout = keyboardLayout,
                 heldBySource = heldBySource,
                 zoom = zoom,
                 onNoteOn = onPianoNoteOn,
                 onNoteOff = onPianoNoteOff,
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }

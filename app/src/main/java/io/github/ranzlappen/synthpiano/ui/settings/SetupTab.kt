@@ -18,21 +18,33 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.github.ranzlappen.synthpiano.BuildConfig
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.SynthController
+import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
@@ -58,6 +70,8 @@ fun SetupTab(
     val started by synth.started.collectAsState()
     val accentName by prefs.themeAccent.collectAsState(initial = "AURORA")
     val accent = ThemeAccent.fromName(accentName)
+    val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
+    var editingLayout by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -89,6 +103,57 @@ fun SetupTab(
             } else {
                 devices.forEach { name ->
                     InfoRow("• $name")
+                }
+            }
+        }
+
+        // Keyboard Layout (panels + drag-and-drop)
+        SettingsSection(title = stringResource(R.string.settings_keyboard_layout)) {
+            Text(
+                stringResource(
+                    R.string.settings_keyboard_layout_summary,
+                    keyboardLayout.name,
+                    keyboardLayout.panels.size,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(onClick = { editingLayout = true }) {
+                    Text(stringResource(R.string.settings_layout_edit))
+                }
+                TextButton(onClick = {
+                    scope.launch { prefs.setKeyboardLayout(BuiltInLayouts.DEFAULT) }
+                }) {
+                    Text(stringResource(R.string.settings_layout_reset))
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BuiltInLayouts.ALL.forEach { preset ->
+                    val isActive = preset.name == keyboardLayout.name
+                    AssistChip(
+                        onClick = {
+                            scope.launch { prefs.setKeyboardLayout(preset) }
+                        },
+                        label = {
+                            val displayName = when (preset.name) {
+                                "Default" -> stringResource(R.string.settings_layout_default)
+                                "Thumb-Friendly" -> stringResource(R.string.settings_layout_thumb_friendly)
+                                else -> preset.name
+                            }
+                            Text(displayName)
+                        },
+                        leadingIcon = if (isActive) {
+                            { Icon(Icons.Filled.Check, contentDescription = null) }
+                        } else null,
+                    )
                 }
             }
         }
@@ -128,6 +193,26 @@ fun SetupTab(
             InfoRow(stringResource(R.string.about_source_attribution))
             InfoRow(stringResource(R.string.about_engine))
             InfoRow(stringResource(R.string.about_license))
+        }
+    }
+
+    if (editingLayout) {
+        Dialog(
+            onDismissRequest = { editingLayout = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false,
+            ),
+        ) {
+            KeyboardLayoutEditor(
+                initial = keyboardLayout,
+                onCancel = { editingLayout = false },
+                onSave = { layout ->
+                    scope.launch { prefs.setKeyboardLayout(layout) }
+                    editingLayout = false
+                },
+            )
         }
     }
 }

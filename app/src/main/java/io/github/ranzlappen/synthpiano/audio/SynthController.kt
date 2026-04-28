@@ -1,7 +1,11 @@
 package io.github.ranzlappen.synthpiano.audio
 
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
@@ -10,6 +14,19 @@ import kotlinx.coroutines.flow.asStateFlow
  * score=tertiary, HW keyboard=accent).
  */
 enum class NoteSource { TOUCH, MIDI, SCORE, HW_KEYBOARD }
+
+/**
+ * Single note-on / note-off event tagged with a monotonic timestamp. Emitted
+ * from [SynthController.noteEvents] for non-audio-thread observers
+ * (recorder, MIDI thru, etc.).
+ */
+data class NoteCaptureEvent(
+    val midi: Int,
+    val velocity: Float,
+    val source: NoteSource,
+    val on: Boolean,
+    val tNanos: Long,
+)
 
 /**
  * Application-scoped façade over [NativeSynth]. UI code interacts with
@@ -48,6 +65,13 @@ class SynthController(private val engine: NativeSynth) {
 
     private val _started = MutableStateFlow(false)
     val started: StateFlow<Boolean> = _started.asStateFlow()
+
+    private val _noteEvents = MutableSharedFlow<NoteCaptureEvent>(
+        replay = 0,
+        extraBufferCapacity = 256,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val noteEvents: SharedFlow<NoteCaptureEvent> = _noteEvents.asSharedFlow()
 
     fun start() {
         if (_started.value) return
@@ -91,6 +115,9 @@ class SynthController(private val engine: NativeSynth) {
         engine.noteOn(midiNote, velocity)
         _heldNotes.update { it + midiNote }
         _heldBySource.update { it + (midiNote to source) }
+        _noteEvents.tryEmit(
+            NoteCaptureEvent(midiNote, velocity, source, on = true, tNanos = System.nanoTime()),
+        )
     }
 
     fun noteOff(midiNote: Int) {
@@ -98,6 +125,9 @@ class SynthController(private val engine: NativeSynth) {
         engine.noteOff(midiNote)
         _heldNotes.update { it - midiNote }
         _heldBySource.update { it - midiNote }
+        _noteEvents.tryEmit(
+            NoteCaptureEvent(midiNote, 0f, NoteSource.TOUCH, on = false, tNanos = System.nanoTime()),
+        )
     }
 
     fun allNotesOff() {

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Session-level wrapper around [WavRecorder] that exposes StateFlow-driven
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
  */
 class RecordingSession(
     private val recorder: WavRecorder,
+    private val scoreRecorder: ScoreRecorder,
     private val scope: CoroutineScope,
 ) {
     private val _isRecording = MutableStateFlow(false)
@@ -29,6 +31,9 @@ class RecordingSession(
     private val _lastPath = MutableStateFlow<String?>(null)
     val lastPath: StateFlow<String?> = _lastPath.asStateFlow()
 
+    private val _lastScorePath = MutableStateFlow<String?>(null)
+    val lastScorePath: StateFlow<String?> = _lastScorePath.asStateFlow()
+
     private var tickJob: Job? = null
 
     fun toggle(ctx: Context) {
@@ -39,6 +44,7 @@ class RecordingSession(
         if (_isRecording.value) return
         val path = recorder.start(ctx) ?: return
         _lastPath.value = path
+        scoreRecorder.start(scoreSiblingPath(path))
         _isRecording.value = true
         _elapsedMs.value = 0L
         val startedAt = System.currentTimeMillis()
@@ -53,6 +59,8 @@ class RecordingSession(
     fun stop() {
         if (!_isRecording.value) return
         recorder.stop()
+        val title = _lastPath.value?.let { File(it).nameWithoutExtension }
+        _lastScorePath.value = scoreRecorder.stop(title = title)
         _isRecording.value = false
         tickJob?.cancel()
         tickJob = null
@@ -61,4 +69,8 @@ class RecordingSession(
     fun shareLast(ctx: Context) {
         _lastPath.value?.let { recorder.share(ctx, it) }
     }
+
+    private fun scoreSiblingPath(wavPath: String): String =
+        if (wavPath.endsWith(".wav", ignoreCase = true)) wavPath.dropLast(4) + ".json"
+        else "$wavPath.json"
 }

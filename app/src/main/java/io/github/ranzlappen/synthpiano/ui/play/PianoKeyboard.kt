@@ -53,45 +53,11 @@ val PIANO_WHITE_KEY_DP: Dp = 56.dp
 internal const val ZOOM_MIN = 0.1f
 internal const val ZOOM_MAX = 2.0f
 
-private val WHITE_INDEX_TO_MIDI: IntArray = IntArray(PIANO_WHITE_KEY_COUNT) { i ->
-    when (i) {
-        0 -> PIANO_FIRST_MIDI
-        1 -> PIANO_FIRST_MIDI + 2
-        else -> {
-            val rel = i - 2
-            val whiteSemitones = intArrayOf(0, 2, 4, 5, 7, 9, 11)
-            (PIANO_FIRST_MIDI + 3) + (rel / 7) * 12 + whiteSemitones[rel % 7]
-        }
-    }
-}
+/** White-key pitch classes (C, D, E, F, G, A, B). */
+private val WHITE_KEY_PCS: Set<Int> = setOf(0, 2, 4, 5, 7, 9, 11)
 
-/**
- * MIDI note of the leftmost C currently visible in the scrollable keyboard.
- *
- * @param scrollPx Current scroll offset in pixels.
- * @param whiteKeyPx Width of one white key in pixels (density-and-zoom-adjusted).
- */
-fun leftmostVisibleC(scrollPx: Int, whiteKeyPx: Float): Int {
-    if (whiteKeyPx <= 0f) return 48
-    val firstVisibleWhiteIdx =
-        (scrollPx / whiteKeyPx).toInt().coerceIn(0, PIANO_WHITE_KEY_COUNT - 1)
-    for (i in firstVisibleWhiteIdx until PIANO_WHITE_KEY_COUNT) {
-        val midi = WHITE_INDEX_TO_MIDI[i]
-        if (midi % 12 == 0) return midi
-    }
-    return WHITE_INDEX_TO_MIDI[firstVisibleWhiteIdx].let { it - (it % 12) }
-}
-
-/**
- * Pixel scroll offset that aligns the keyboard so the given C note is the
- * leftmost visible white key.
- */
-fun scrollPxForC(midiC: Int, whiteKeyPx: Float): Int {
-    if (whiteKeyPx <= 0f) return 0
-    val idx = WHITE_INDEX_TO_MIDI.indexOfFirst { it == midiC }
-    if (idx < 0) return 0
-    return (idx * whiteKeyPx).toInt()
-}
+/** A black key positioned 65% of the way across its left-side white key. */
+private data class BlackKeyDef(val midi: Int, val leftWhiteIndex: Int)
 
 /**
  * Multi-touch piano keyboard with per-source key coloring.
@@ -116,8 +82,9 @@ fun PianoKeyboard(
     zoom: Float,
     onNoteOn: (Int) -> Unit,
     onNoteOff: (Int) -> Unit,
+    firstMidi: Int = PIANO_FIRST_MIDI,
+    whiteKeyCount: Int = PIANO_WHITE_KEY_COUNT,
 ) {
-    val whiteKeySemitones = listOf(0, 2, 4, 5, 7, 9, 11)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
 
@@ -130,56 +97,52 @@ fun PianoKeyboard(
     val currentOnNoteOn by rememberUpdatedState(onNoteOn)
     val currentOnNoteOff by rememberUpdatedState(onNoteOff)
 
-    val firstMidiNote = PIANO_FIRST_MIDI
-    val whiteKeyCount = PIANO_WHITE_KEY_COUNT
-
     val effectiveKeyDp = PIANO_WHITE_KEY_DP * zoom.coerceIn(ZOOM_MIN, ZOOM_MAX)
     val totalWidthDp = effectiveKeyDp * whiteKeyCount
 
+    // Build white/black key mappings for this panel's range. Works for any
+    // firstMidi (not just A0), so layout panels can render arbitrary slices.
+    val whiteMidis = remember(firstMidi, whiteKeyCount) {
+        val out = IntArray(whiteKeyCount)
+        var i = 0
+        var m = firstMidi
+        while (m < 128 && (m % 12) !in WHITE_KEY_PCS) m++
+        while (i < whiteKeyCount && m < 128) {
+            if ((m % 12) in WHITE_KEY_PCS) {
+                out[i] = m
+                i++
+            }
+            m++
+        }
+        // If firstMidi was high enough that we ran off the end, pad by repeating last.
+        while (i < whiteKeyCount) { out[i] = out[(i - 1).coerceAtLeast(0)]; i++ }
+        out
+    }
+    val blackKeys: List<BlackKeyDef> = remember(whiteMidis) {
+        val list = mutableListOf<BlackKeyDef>()
+        for (idx in 0 until whiteMidis.size - 1) {
+            if (whiteMidis[idx + 1] - whiteMidis[idx] == 2) {
+                list += BlackKeyDef(midi = whiteMidis[idx] + 1, leftWhiteIndex = idx)
+            }
+        }
+        list
+    }
+
     fun whiteKeyIndexFromX(x: Float, w: Float): Int {
         val keyW = w / whiteKeyCount
-        val idx = (x / keyW).toInt().coerceIn(0, whiteKeyCount - 1)
-        return idx
+        return (x / keyW).toInt().coerceIn(0, whiteKeyCount - 1)
     }
-
-    fun whiteIndexToMidi(i: Int): Int = when (i) {
-        0 -> firstMidiNote          // A0
-        1 -> firstMidiNote + 2      // B0
-        else -> {
-            val rel = i - 2          // 0-based from C1
-            val octave = rel / 7
-            val degree = rel % 7
-            (firstMidiNote + 3) + octave * 12 + whiteKeySemitones[degree]
-        }
-    }
-
-    val blackKeyOffsetsInOctave = listOf(
-        0 to 0.65f,  // C# at C+0.65
-        2 to 1.65f,  // D# at D+0.65
-        5 to 3.65f,  // F# at F+0.65
-        7 to 4.65f,  // G# at G+0.65
-        9 to 5.65f,  // A# at A+0.65
-    )
 
     fun midiAt(x: Float, y: Float, w: Float, h: Float): Int {
         val keyW = w / whiteKeyCount
         if (y < h * 0.60f) {
-            val aSharp0X = 0.65f * keyW
             val bw = keyW * 0.7f
-            if (x >= aSharp0X && x < aSharp0X + bw) return firstMidiNote + 1
-
-            val octavesOfC = (whiteKeyCount - 2 + 6) / 7
-            for ((semi, off) in blackKeyOffsetsInOctave) {
-                for (oct in 0 until octavesOfC) {
-                    val cWhiteIndex = 2 + oct * 7
-                    val cx = (cWhiteIndex + off) * keyW
-                    if (x >= cx && x < cx + bw && (cWhiteIndex + off + 1) <= whiteKeyCount) {
-                        return (firstMidiNote + 3) + oct * 12 + semi + 1
-                    }
-                }
+            for (bk in blackKeys) {
+                val cx = (bk.leftWhiteIndex + 0.65f) * keyW
+                if (x >= cx && x < cx + bw) return bk.midi
             }
         }
-        return whiteIndexToMidi(whiteKeyIndexFromX(x, w))
+        return whiteMidis[whiteKeyIndexFromX(x, w)]
     }
 
     Box(
@@ -221,7 +184,7 @@ fun PianoKeyboard(
 
                 // White keys.
                 for (i in 0 until whiteKeyCount) {
-                    val midi = whiteIndexToMidi(i)
+                    val midi = whiteMidis[i]
                     val pressedColor = heldBySource[midi]?.let(::sourceColor)
                     val baseFill = pressedColor ?: KeyWhite
                     drawRect(color = baseFill, topLeft = Offset(i * keyW, 0f), size = Size(keyW, h))
@@ -245,31 +208,11 @@ fun PianoKeyboard(
                 // Black keys.
                 val blackH = h * 0.60f
                 val blackW = keyW * 0.7f
-
-                run {
-                    val aSharp = firstMidiNote + 1
-                    val xPos = 0.65f * keyW
-                    val pressedColor = heldBySource[aSharp]?.let(::sourceColor)
+                for (bk in blackKeys) {
+                    val xPos = (bk.leftWhiteIndex + 0.65f) * keyW
+                    val pressedColor = heldBySource[bk.midi]?.let(::sourceColor)
                     val fill = pressedColor ?: KeyBlack
                     drawRect(color = fill, topLeft = Offset(xPos, 0f), size = Size(blackW, blackH))
-                }
-
-                val octavesOfC = (whiteKeyCount - 2 + 6) / 7
-                for ((semi, off) in blackKeyOffsetsInOctave) {
-                    for (oct in 0 until octavesOfC) {
-                        val cWhiteIndex = 2 + oct * 7
-                        if ((cWhiteIndex + off + 1) > whiteKeyCount) continue
-                        val xPos = (cWhiteIndex + off) * keyW
-                        val midi = (firstMidiNote + 3) + oct * 12 + semi + 1
-                        if (midi > 108) continue
-                        val pressedColor = heldBySource[midi]?.let(::sourceColor)
-                        val fill = pressedColor ?: KeyBlack
-                        drawRect(
-                            color = fill,
-                            topLeft = Offset(xPos, 0f),
-                            size = Size(blackW, blackH),
-                        )
-                    }
                 }
             }
         }
