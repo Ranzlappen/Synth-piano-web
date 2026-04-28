@@ -1,19 +1,6 @@
 package io.github.ranzlappen.synthpiano.ui.play
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,12 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
@@ -36,21 +18,13 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.applyInversion
 import io.github.ranzlappen.synthpiano.data.buildChordIntervals
-import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 import kotlinx.coroutines.launch
 
 /**
- * The PERFORM tab: the workstation's primary play surface.
- *
- * Layout (top → bottom):
- *  1. Two rows of chord-modifier buttons. The top row (LOCK) is sticky:
- *     tap a quality to toggle it, persists across sessions. The bottom
- *     row (SHIFT) is momentary: a quality is active only while held. The
- *     union of both sets decorates whichever piano key is currently
- *     pressed. With nothing active, a key plays a single note.
- *  2. Full-piano A0–C8 keyboard, horizontally scrollable, taking the rest
- *     of the viewport. Zoom is controlled by the +/- buttons in the panel
- *     above so multi-finger play is never interrupted by a pinch gesture.
+ * The PERFORM tab: the workstation's primary play surface. Every visible
+ * container — keyboard panels, the chord-modifier strip — is positioned
+ * by the active [io.github.ranzlappen.synthpiano.data.KeyboardLayout],
+ * editable from Settings → Keyboard Layout.
  */
 @Composable
 fun PerformTab(
@@ -93,97 +67,45 @@ fun PerformTab(
 
     val qualities = remember { ChordQuality.values().toList() }
 
-    Column(
+    KeyboardLayoutHost(
+        layout = keyboardLayout,
+        heldBySource = heldBySource,
+        zoom = zoom,
+        onNoteOn = onPianoNoteOn,
+        onNoteOff = onPianoNoteOff,
         modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    ChordModifierRow(
-                        label = "LOCK",
-                        qualities = qualities,
-                        selected = sticky,
-                        inversion = stickyInv,
-                        onToggle = { q ->
-                            val next = if (q in sticky) sticky - q else sticky + q
-                            scope.launch { prefs.setChordModSticky(next) }
-                        },
-                        onInversionToggle = { inv ->
-                            val next = if (inv == stickyInv) ChordInversion.NONE else inv
-                            scope.launch { prefs.setChordInvSticky(next) }
-                        },
-                    )
-                    ChordModifierRow(
-                        label = "SHIFT",
-                        qualities = qualities,
-                        selected = held,
-                        inversion = heldInv,
-                        momentary = true,
-                        onPress = { q -> held = held + q },
-                        onRelease = { q -> held = held - q },
-                        onInversionPress = { inv -> heldInv = inv },
-                        onInversionRelease = { inv ->
-                            if (heldInv == inv) heldInv = ChordInversion.NONE
-                        },
-                    )
-                }
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    IconButton(
-                        onClick = {
-                            val next = (zoom + 0.1f).coerceAtMost(ZOOM_MAX)
-                            if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
-                        },
-                        enabled = zoom < ZOOM_MAX - 1e-3f,
-                    ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = stringResource(R.string.score_zoom_in),
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            val next = (zoom - 0.1f).coerceAtLeast(ZOOM_MIN)
-                            if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
-                        },
-                        enabled = zoom > ZOOM_MIN + 1e-3f,
-                    ) {
-                        Icon(
-                            Icons.Filled.Remove,
-                            contentDescription = stringResource(R.string.score_zoom_out),
-                        )
-                    }
-                }
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .heightIn(min = 160.dp)
-                .clip(RoundedCornerShape(12.dp)),
-        ) {
-            KeyboardLayoutHost(
-                layout = keyboardLayout,
-                heldBySource = heldBySource,
+        modifierContent = { modPanel ->
+            PerformModifierStrip(
+                qualities = qualities,
+                sticky = sticky,
+                stickyInv = stickyInv,
+                held = held,
+                heldInv = heldInv,
                 zoom = zoom,
-                onNoteOn = onPianoNoteOn,
-                onNoteOff = onPianoNoteOff,
-                modifier = Modifier.fillMaxSize(),
+                showLock = modPanel.showLock,
+                showShift = modPanel.showShift,
+                showZoom = modPanel.showZoom,
+                onStickyToggle = { q ->
+                    val next = if (q in sticky) sticky - q else sticky + q
+                    scope.launch { prefs.setChordModSticky(next) }
+                },
+                onStickyInvToggle = { inv ->
+                    val next = if (inv == stickyInv) ChordInversion.NONE else inv
+                    scope.launch { prefs.setChordInvSticky(next) }
+                },
+                onShiftPress = { q -> held = held + q },
+                onShiftRelease = { q -> held = held - q },
+                onShiftInvPress = { inv -> heldInv = inv },
+                onShiftInvRelease = { inv -> if (heldInv == inv) heldInv = ChordInversion.NONE },
+                onZoomIn = {
+                    val next = (zoom + 0.1f).coerceAtMost(ZOOM_MAX)
+                    if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
+                },
+                onZoomOut = {
+                    val next = (zoom - 0.1f).coerceAtLeast(ZOOM_MIN)
+                    if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
+                },
             )
-        }
-    }
+        },
+    )
 }

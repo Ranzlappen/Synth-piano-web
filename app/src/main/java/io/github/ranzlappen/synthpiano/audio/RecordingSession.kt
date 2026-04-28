@@ -67,7 +67,8 @@ class RecordingSession(
     }
 
     fun shareLast(ctx: Context) {
-        _lastPath.value?.let { recorder.share(ctx, it) }
+        val paths = listOfNotNull(_lastPath.value, _lastScorePath.value)
+        if (paths.isNotEmpty()) recorder.shareFiles(ctx, paths)
     }
 
     private fun scoreSiblingPath(wavPath: String): String =
