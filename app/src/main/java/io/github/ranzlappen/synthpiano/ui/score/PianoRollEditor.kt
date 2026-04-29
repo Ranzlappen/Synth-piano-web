@@ -1,16 +1,18 @@
 package io.github.ranzlappen.synthpiano.ui.score
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -21,12 +23,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.data.midi.MidiScore
 import io.github.ranzlappen.synthpiano.data.midi.Note
+import kotlin.math.abs
 import kotlin.math.max
 
 /**
@@ -41,10 +45,21 @@ import kotlin.math.max
  * Time runs left → right. Higher pitches are at the top, matching DAW
  * convention. Notes from every channel are rendered together; channel
  * is colour-encoded so polyphonic / multi-instrument SMFs are legible.
+ *
+ * Zoom: the caller owns [zoomX] / [zoomY]. The grid + drawing + gesture
+ * math all run against scaled metrics (`pxPerBeat * zoomX`, etc.) so taps,
+ * long-presses, and drags continue to work at any zoom level. A two-finger
+ * pinch updates both axes via [onZoomChange]; single-finger gestures
+ * pass through to the existing tap / long-press / drag detectors.
  */
 
 private const val DEFAULT_MIN_PITCH = 24   // C1
 private const val DEFAULT_MAX_PITCH = 108  // C8
+
+const val PIANO_ROLL_ZOOM_MIN_X = 0.25f
+const val PIANO_ROLL_ZOOM_MAX_X = 8f
+const val PIANO_ROLL_ZOOM_MIN_Y = 0.5f
+const val PIANO_ROLL_ZOOM_MAX_Y = 4f
 
 private val CHANNEL_COLORS = listOf(
     Color(0xFF1976D2), // 0  blue
@@ -80,11 +95,16 @@ fun PianoRollEditor(
     keyboardWidth: Dp = 56.dp,
     minPitch: Int = DEFAULT_MIN_PITCH,
     maxPitch: Int = DEFAULT_MAX_PITCH,
+    zoomX: Float = 1f,
+    zoomY: Float = 1f,
+    onZoomChange: (zoomX: Float, zoomY: Float) -> Unit = { _, _ -> },
 ) {
     val density = LocalDensity.current
-    val pxPerBeatF = with(density) { pxPerBeat.toPx() }
-    val pxPerSemitoneF = with(density) { pxPerSemitone.toPx() }
-    val keyboardWidthPx = with(density) { keyboardWidth.toPx() }
+    val pxPerBeatBase = with(density) { pxPerBeat.toPx() }
+    val pxPerSemitoneBase = with(density) { pxPerSemitone.toPx() }
+
+    val pxPerBeatF = pxPerBeatBase * zoomX
+    val pxPerSemitoneF = pxPerSemitoneBase * zoomY
 
     val pitchRange = (maxPitch - minPitch + 1).coerceAtLeast(1)
     val totalBeats = beatsTotal(score)
@@ -96,6 +116,12 @@ fun PianoRollEditor(
 
     val hScroll = rememberScrollState()
     val vScroll = rememberScrollState()
+
+    // Latest-value snapshots for the pinch handler so changing zoom doesn't
+    // re-key the gesture coroutine and cancel an in-flight pinch.
+    val zoomXSnap = rememberUpdatedState(zoomX)
+    val zoomYSnap = rememberUpdatedState(zoomY)
+    val onZoomSnap = rememberUpdatedState(onZoomChange)
 
     Row(modifier = modifier.fillMaxSize()) {
         // Fixed keyboard column on the left
@@ -140,6 +166,57 @@ fun PianoRollEditor(
             Canvas(
                 modifier = Modifier
                     .size(totalWidthDp, totalHeightDp)
+                    // Pinch detector runs first and ONLY consumes events
+                    // while two or more pointers are down, so single-finger
+                    // tap / long-press / drag still reach the detectors below.
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            // Wait for any pointer to go down so we don't busy-loop.
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            var pinching = false
+                            var prevSpanX = 0f
+                            var prevSpanY = 0f
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val pressed = event.changes.filter { it.pressed }
+                                if (pressed.size >= 2) {
+                                    val a = pressed[0].position
+                                    val b = pressed[1].position
+                                    val spanX = abs(a.x - b.x)
+                                    val spanY = abs(a.y - b.y)
+                                    if (!pinching) {
+                                        pinching = true
+                                        prevSpanX = spanX
+                                        prevSpanY = spanY
+                                    } else {
+                                        var nextX = zoomXSnap.value
+                                        var nextY = zoomYSnap.value
+                                        if (prevSpanX > 1f && spanX > 1f) {
+                                            nextX = (nextX * (spanX / prevSpanX))
+                                                .coerceIn(PIANO_ROLL_ZOOM_MIN_X, PIANO_ROLL_ZOOM_MAX_X)
+                                        }
+                                        if (prevSpanY > 1f && spanY > 1f) {
+                                            nextY = (nextY * (spanY / prevSpanY))
+                                                .coerceIn(PIANO_ROLL_ZOOM_MIN_Y, PIANO_ROLL_ZOOM_MAX_Y)
+                                        }
+                                        if (nextX != zoomXSnap.value || nextY != zoomYSnap.value) {
+                                            onZoomSnap.value(nextX, nextY)
+                                        }
+                                        prevSpanX = spanX
+                                        prevSpanY = spanY
+                                        // Only consume while actively pinching
+                                        // so the in-flight drag/tap detectors
+                                        // see the right pointer events between
+                                        // 2-finger episodes.
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                } else if (pinching) {
+                                    pinching = false
+                                }
+                                if (pressed.isEmpty()) break
+                            }
+                        }
+                    }
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = { offset ->

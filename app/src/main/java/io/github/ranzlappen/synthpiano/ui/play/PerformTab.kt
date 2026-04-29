@@ -65,8 +65,6 @@ fun PerformTab(
             .forEach { synth.noteOff(it) }
     }
 
-    val qualities = remember { ChordQuality.values().toList() }
-
     KeyboardLayoutHost(
         layout = keyboardLayout,
         heldBySource = heldBySource,
@@ -76,7 +74,8 @@ fun PerformTab(
         modifier = modifier.fillMaxSize(),
         modifierContent = { modPanel ->
             PerformModifierStrip(
-                qualities = qualities,
+                qualities = modPanel.qualities,
+                inversions = modPanel.inversions,
                 sticky = sticky,
                 stickyInv = stickyInv,
                 held = held,

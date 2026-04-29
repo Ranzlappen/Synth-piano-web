@@ -44,6 +44,7 @@ import io.github.ranzlappen.synthpiano.data.midi.SmfRecorder
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.audio.WavRecorder
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
+import io.github.ranzlappen.synthpiano.data.LayoutRepository
 import io.github.ranzlappen.synthpiano.data.PresetRepository
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
@@ -68,6 +69,7 @@ fun SynthAppRoot(
     synth: SynthController,
     prefs: PreferencesRepository,
     presets: PresetRepository,
+    layouts: LayoutRepository,
     midi: MidiManager,
     hwKeys: HwKeyboardMapper,
 ) {
@@ -132,7 +134,13 @@ fun SynthAppRoot(
                         Tab.Perform -> PerformTab(synth = synth, prefs = prefs)
                         Tab.Sound -> SoundTab(synth = synth, prefs = prefs, presets = presets)
                         Tab.Compose -> ComposerTab(synth = synth, prefs = prefs, scoreState = scoreState)
-                        Tab.Setup -> SetupTab(synth = synth, prefs = prefs, midi = midi, hwKeys = hwKeys)
+                        Tab.Setup -> SetupTab(
+                            synth = synth,
+                            prefs = prefs,
+                            layouts = layouts,
+                            midi = midi,
+                            hwKeys = hwKeys,
+                        )
                     }
                 }
             }

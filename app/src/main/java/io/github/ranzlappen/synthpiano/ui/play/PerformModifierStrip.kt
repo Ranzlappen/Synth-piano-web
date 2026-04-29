@@ -37,6 +37,7 @@ import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 @Composable
 fun PerformModifierStrip(
     qualities: List<ChordQuality>,
+    inversions: List<ChordInversion>,
     sticky: Set<ChordQuality>,
     stickyInv: ChordInversion,
     held: Set<ChordQuality>,
@@ -73,6 +74,7 @@ fun PerformModifierStrip(
                     ChordModifierRow(
                         label = "LOCK",
                         qualities = qualities,
+                        inversions = inversions,
                         selected = sticky,
                         inversion = stickyInv,
                         onToggle = onStickyToggle,
@@ -83,6 +85,7 @@ fun PerformModifierStrip(
                     ChordModifierRow(
                         label = "SHIFT",
                         qualities = qualities,
+                        inversions = inversions,
                         selected = held,
                         inversion = heldInv,
                         momentary = true,
