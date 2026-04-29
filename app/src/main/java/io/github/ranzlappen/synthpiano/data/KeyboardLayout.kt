@@ -1,6 +1,7 @@
 package io.github.ranzlappen.synthpiano.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
@@ -57,18 +58,28 @@ data class ModifierPanel(
     val showLock: Boolean = true,
     val showShift: Boolean = true,
     val showZoom: Boolean = true,
+    val qualities: List<ChordQuality> = ChordQuality.entries.toList(),
+    val inversions: List<ChordInversion> = DEFAULT_INVERSIONS,
 ) {
-    fun normalized(): ModifierPanel = copy(
-        xFraction = xFraction.coerceIn(0f, 1f - MIN_W),
-        yFraction = yFraction.coerceIn(0f, 1f - MIN_H),
-        widthFraction = widthFraction.coerceIn(MIN_W, 1f),
-        heightFraction = heightFraction.coerceIn(MIN_H, 1f),
-        rotationDeg = ((rotationDeg % 360) + 360) % 360,
-    )
+    fun normalized(): ModifierPanel {
+        val q = qualities.distinct().filter { it in ChordQuality.entries }
+        val i = inversions.distinct().filter { it != ChordInversion.NONE }
+        return copy(
+            xFraction = xFraction.coerceIn(0f, 1f - MIN_W),
+            yFraction = yFraction.coerceIn(0f, 1f - MIN_H),
+            widthFraction = widthFraction.coerceIn(MIN_W, 1f),
+            heightFraction = heightFraction.coerceIn(MIN_H, 1f),
+            rotationDeg = ((rotationDeg % 360) + 360) % 360,
+            qualities = q.ifEmpty { ChordQuality.entries.toList() },
+            inversions = i.ifEmpty { DEFAULT_INVERSIONS },
+        )
+    }
 
     companion object {
         const val MIN_W = 0.25f
         const val MIN_H = 0.08f
+        val DEFAULT_INVERSIONS: List<ChordInversion> =
+            listOf(ChordInversion.FIRST, ChordInversion.SECOND, ChordInversion.THIRD)
     }
 }
 
@@ -172,3 +183,16 @@ fun parseKeyboardLayoutJson(text: String): KeyboardLayout? = runCatching {
         raw.copy(panels = normKbs, modifiers = normMods)
     }
 }.getOrNull()
+
+private val layoutListSerializer = ListSerializer(KeyboardLayout.serializer())
+
+fun List<KeyboardLayout>.toLayoutListJson(): String =
+    layoutJson.encodeToString(layoutListSerializer, this)
+
+fun parseKeyboardLayoutListJson(text: String): List<KeyboardLayout> = runCatching {
+    layoutJson.decodeFromString(layoutListSerializer, text).map { raw ->
+        val normKbs = raw.panels.map { it.normalized() }
+        val normMods = raw.modifiers.map { it.normalized() }
+        raw.copy(panels = normKbs, modifiers = normMods, builtin = false)
+    }
+}.getOrDefault(emptyList())

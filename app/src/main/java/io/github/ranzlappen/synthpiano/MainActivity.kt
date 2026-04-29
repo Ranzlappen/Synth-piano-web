@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
                     synth = synth,
                     prefs = app.prefs,
                     presets = app.presets,
+                    layouts = app.layouts,
                     midi = midi,
                     hwKeys = hwKeys,
                 )

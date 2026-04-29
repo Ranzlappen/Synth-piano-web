@@ -20,10 +20,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +50,7 @@ import io.github.ranzlappen.synthpiano.BuildConfig
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
+import io.github.ranzlappen.synthpiano.data.LayoutRepository
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
@@ -61,6 +67,7 @@ import kotlinx.coroutines.launch
 fun SetupTab(
     synth: SynthController,
     prefs: PreferencesRepository,
+    layouts: LayoutRepository,
     midi: MidiManager,
     hwKeys: HwKeyboardMapper,
     modifier: Modifier = Modifier,
@@ -71,7 +78,10 @@ fun SetupTab(
     val accentName by prefs.themeAccent.collectAsState(initial = "AURORA")
     val accent = ThemeAccent.fromName(accentName)
     val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
+    val userLayouts by layouts.userLayouts.collectAsState(initial = emptyList())
     var editingLayout by remember { mutableStateOf(false) }
+    var saveAsCurrent by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
@@ -126,6 +136,9 @@ fun SetupTab(
                 OutlinedButton(onClick = { editingLayout = true }) {
                     Text(stringResource(R.string.settings_layout_edit))
                 }
+                OutlinedButton(onClick = { saveAsCurrent = true }) {
+                    Text("Save as…")
+                }
                 TextButton(onClick = {
                     scope.launch { prefs.setKeyboardLayout(BuiltInLayouts.DEFAULT) }
                 }) {
@@ -154,6 +167,34 @@ fun SetupTab(
                             { Icon(Icons.Filled.Check, contentDescription = null) }
                         } else null,
                     )
+                }
+            }
+            if (userLayouts.isNotEmpty()) {
+                Text(
+                    "Saved layouts",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    userLayouts.forEach { layout ->
+                        val isActive = layout.name == keyboardLayout.name
+                        InputChip(
+                            selected = isActive,
+                            onClick = { scope.launch { layouts.apply(layout) } },
+                            label = { Text(layout.name) },
+                            leadingIcon = if (isActive) {
+                                { Icon(Icons.Filled.Check, contentDescription = null) }
+                            } else null,
+                            trailingIcon = {
+                                IconButton(onClick = { pendingDelete = layout.name }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Delete ${layout.name}")
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -212,9 +253,98 @@ fun SetupTab(
                     scope.launch { prefs.setKeyboardLayout(layout) }
                     editingLayout = false
                 },
+                onSaveAs = { layout ->
+                    scope.launch {
+                        layouts.saveUser(layout)
+                        layouts.apply(layout)
+                    }
+                    editingLayout = false
+                },
+                existingNames = userLayouts.map { it.name }.toSet(),
             )
         }
     }
+
+    if (saveAsCurrent) {
+        SaveCurrentLayoutDialog(
+            initialName = if (keyboardLayout.builtin) "" else keyboardLayout.name,
+            takenNames = userLayouts.map { it.name }.toSet() +
+                BuiltInLayouts.ALL.map { it.name }.toSet(),
+            onDismiss = { saveAsCurrent = false },
+            onConfirm = { name ->
+                val toSave = keyboardLayout.copy(name = name, builtin = false)
+                scope.launch {
+                    layouts.saveUser(toSave)
+                    layouts.apply(toSave)
+                }
+                saveAsCurrent = false
+            },
+        )
+    }
+
+    pendingDelete?.let { name ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete layout") },
+            text = { Text("Remove the saved layout \"$name\"?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { layouts.deleteUser(name) }
+                    pendingDelete = null
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun SaveCurrentLayoutDialog(
+    initialName: String,
+    takenNames: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+    val trimmed = name.trim()
+    val builtinNames = BuiltInLayouts.ALL.map { it.name }.toSet()
+    val collidesBuiltIn = trimmed in builtinNames
+    val isValid = trimmed.isNotEmpty() && !collidesBuiltIn
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save layout as") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Layout name") },
+                    singleLine = true,
+                )
+                when {
+                    collidesBuiltIn -> Text(
+                        "That name is reserved for a built-in layout.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    trimmed in takenNames -> Text(
+                        "A layout with this name already exists — saving will overwrite it.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(trimmed) }, enabled = isValid) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

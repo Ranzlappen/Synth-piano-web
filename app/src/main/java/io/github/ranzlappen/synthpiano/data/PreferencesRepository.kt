@@ -44,6 +44,7 @@ private object Keys {
     val COMPOSER_EDITOR_W = floatPreferencesKey("composer_editor_weight")
     val COMPOSER_EDITOR_H = floatPreferencesKey("composer_editor_height")
     val KEYBOARD_LAYOUT_JSON = stringPreferencesKey("keyboard_layout_json")
+    val USER_LAYOUTS_JSON = stringPreferencesKey("user_layouts_json")
 }
 
 /**
@@ -145,6 +146,10 @@ class PreferencesRepository(private val context: Context) {
                 ?: BuiltInLayouts.DEFAULT
         }
 
+    /** JSON for the list of user-saved (named) layouts. */
+    val userLayoutsJson: Flow<String?> =
+        context.dataStore.data.map { it[Keys.USER_LAYOUTS_JSON] }
+
     suspend fun setWaveform(w: Waveform) =
         edit { it[Keys.WAVEFORM] = w.name }
 
@@ -209,6 +214,8 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun clearKeyboardLayout() = edit { it.remove(Keys.KEYBOARD_LAYOUT_JSON) }
 
+    suspend fun setUserLayoutsJson(json: String) = edit { it[Keys.USER_LAYOUTS_JSON] = json }
+
     /** Synchronous snapshot of the keymap JSON for non-suspending init paths. */
     fun blockingKeymapJson(): String? = runBlocking { keymapJson.first() }
 
@@ -230,6 +237,6 @@ class PreferencesRepository(private val context: Context) {
         Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT,
         Keys.CHORD_MOD_STICKY, Keys.CHORD_INV_STICKY, Keys.PIANO_ZOOM,
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
-        Keys.KEYBOARD_LAYOUT_JSON,
+        Keys.KEYBOARD_LAYOUT_JSON, Keys.USER_LAYOUTS_JSON,
     )
 }

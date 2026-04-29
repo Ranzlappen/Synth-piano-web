@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -26,8 +29,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +73,8 @@ fun MidiEditorPane(
     modifier: Modifier = Modifier,
 ) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    var zoomX by rememberSaveable { mutableFloatStateOf(1f) }
+    var zoomY by rememberSaveable { mutableFloatStateOf(1f) }
 
     GlassCard(modifier = modifier) {
         Column(
@@ -132,6 +139,26 @@ fun MidiEditorPane(
                         Icon(Icons.Filled.Delete, contentDescription = "Delete selected note")
                     }
                 }
+                IconButton(
+                    onClick = {
+                        zoomX = (zoomX * 1.25f).coerceAtMost(PIANO_ROLL_ZOOM_MAX_X)
+                        zoomY = (zoomY * 1.25f).coerceAtMost(PIANO_ROLL_ZOOM_MAX_Y)
+                    },
+                    enabled = midiScore != null &&
+                        (zoomX < PIANO_ROLL_ZOOM_MAX_X - 1e-3f || zoomY < PIANO_ROLL_ZOOM_MAX_Y - 1e-3f),
+                ) { Icon(Icons.Filled.Add, contentDescription = "Zoom in") }
+                IconButton(
+                    onClick = {
+                        zoomX = (zoomX / 1.25f).coerceAtLeast(PIANO_ROLL_ZOOM_MIN_X)
+                        zoomY = (zoomY / 1.25f).coerceAtLeast(PIANO_ROLL_ZOOM_MIN_Y)
+                    },
+                    enabled = midiScore != null &&
+                        (zoomX > PIANO_ROLL_ZOOM_MIN_X + 1e-3f || zoomY > PIANO_ROLL_ZOOM_MIN_Y + 1e-3f),
+                ) { Icon(Icons.Filled.Remove, contentDescription = "Zoom out") }
+                IconButton(
+                    onClick = { zoomX = 1f; zoomY = 1f },
+                    enabled = midiScore != null && (zoomX != 1f || zoomY != 1f),
+                ) { Icon(Icons.Filled.Refresh, contentDescription = "Reset zoom") }
             }
 
             status?.let {
@@ -189,6 +216,9 @@ fun MidiEditorPane(
                             if (selectedIndex == idx) selectedIndex = null
                         }
                     },
+                    zoomX = zoomX,
+                    zoomY = zoomY,
+                    onZoomChange = { x, y -> zoomX = x; zoomY = y },
                 )
             }
         }

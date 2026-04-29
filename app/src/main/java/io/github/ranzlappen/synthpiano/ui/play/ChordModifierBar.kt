@@ -4,11 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -32,21 +33,28 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
  *     pressed. [onPress] fires on finger-down, [onRelease] on lift /
  *     gesture cancellation.
  *
- * Each row also exposes 1/2/3 inversion pills appended after a small
- * gap. They follow the same momentary/sticky convention. Only one
+ * Each row also exposes the [inversions] pills appended after the
+ * qualities. They follow the same momentary/sticky convention. Only one
  * inversion can be active per row; tapping the active one clears it.
  *
- * Buttons are rendered in a [FlowRow] so they wrap onto additional lines
- * when the row is narrower than the natural pill total — every button
- * stays visible regardless of container width.
+ * Pills are laid out in an adaptive grid: the column count is computed
+ * from the available width so pills always **fill the row width** with
+ * `weight(1f)`. Rows wrap only when the available width can't fit all
+ * pills at the minimum target width — eliminating the wide blank band
+ * that the old `FlowRow + fixed 56dp pill` approach left when the strip
+ * was wide-and-short.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChordModifierRow(
     label: String,
     qualities: List<ChordQuality>,
     selected: Set<ChordQuality>,
     inversion: ChordInversion,
+    inversions: List<ChordInversion> = listOf(
+        ChordInversion.FIRST,
+        ChordInversion.SECOND,
+        ChordInversion.THIRD,
+    ),
     momentary: Boolean = false,
     onToggle: ((ChordQuality) -> Unit)? = null,
     onPress: ((ChordQuality) -> Unit)? = null,
@@ -67,32 +75,96 @@ fun ChordModifierRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(40.dp),
         )
-        FlowRow(
+        AdaptivePillGrid(
+            qualities = qualities,
+            inversions = inversions,
+            selected = selected,
+            inversion = inversion,
+            momentary = momentary,
+            onToggle = onToggle,
+            onPress = onPress,
+            onRelease = onRelease,
+            onInversionToggle = onInversionToggle,
+            onInversionPress = onInversionPress,
+            onInversionRelease = onInversionRelease,
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        )
+    }
+}
+
+private sealed interface PillData {
+    data class Quality(val q: ChordQuality) : PillData
+    data class Inversion(val inv: ChordInversion) : PillData
+}
+
+@Composable
+private fun AdaptivePillGrid(
+    qualities: List<ChordQuality>,
+    inversions: List<ChordInversion>,
+    selected: Set<ChordQuality>,
+    inversion: ChordInversion,
+    momentary: Boolean,
+    onToggle: ((ChordQuality) -> Unit)?,
+    onPress: ((ChordQuality) -> Unit)?,
+    onRelease: ((ChordQuality) -> Unit)?,
+    onInversionToggle: ((ChordInversion) -> Unit)?,
+    onInversionPress: ((ChordInversion) -> Unit)?,
+    onInversionRelease: ((ChordInversion) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val items: List<PillData> =
+        qualities.map { PillData.Quality(it) } + inversions.map { PillData.Inversion(it) }
+    if (items.isEmpty()) return
+
+    BoxWithConstraints(modifier = modifier) {
+        val gap = 6.dp
+        val targetMinWidth = 56.dp
+        // (W + g) / (target + g) ≈ how many target-width pills fit, accounting
+        // for inter-pill gaps. Coerce against actual item count so we don't
+        // create empty trailing columns when the strip is very wide.
+        val columns = ((maxWidth + gap) / (targetMinWidth + gap))
+            .toInt()
+            .coerceIn(1, items.size)
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(gap),
         ) {
-            qualities.forEach { q ->
-                ChordPillButton(
-                    text = q.label(),
-                    selected = q in selected,
-                    momentary = momentary,
-                    onToggle = { onToggle?.invoke(q) },
-                    onPress = { onPress?.invoke(q) },
-                    onRelease = { onRelease?.invoke(q) },
-                )
-            }
-            // Visual divider between qualities and inversions; flows like a pill.
-            Box(modifier = Modifier.size(width = 8.dp, height = 1.dp))
-            listOf(ChordInversion.FIRST, ChordInversion.SECOND, ChordInversion.THIRD).forEach { inv ->
-                ChordPillButton(
-                    text = inv.label(),
-                    selected = inversion == inv,
-                    momentary = momentary,
-                    onToggle = { onInversionToggle?.invoke(inv) },
-                    onPress = { onInversionPress?.invoke(inv) },
-                    onRelease = { onInversionRelease?.invoke(inv) },
-                )
+            items.chunked(columns).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(gap),
+                ) {
+                    rowItems.forEach { item ->
+                        val pillModifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                        when (item) {
+                            is PillData.Quality -> ChordPillButton(
+                                text = item.q.label(),
+                                selected = item.q in selected,
+                                momentary = momentary,
+                                modifier = pillModifier,
+                                onToggle = { onToggle?.invoke(item.q) },
+                                onPress = { onPress?.invoke(item.q) },
+                                onRelease = { onRelease?.invoke(item.q) },
+                            )
+                            is PillData.Inversion -> ChordPillButton(
+                                text = item.inv.label(),
+                                selected = inversion == item.inv,
+                                momentary = momentary,
+                                modifier = pillModifier,
+                                onToggle = { onInversionToggle?.invoke(item.inv) },
+                                onPress = { onInversionPress?.invoke(item.inv) },
+                                onRelease = { onInversionRelease?.invoke(item.inv) },
+                            )
+                        }
+                    }
+                    // Keep proportional widths on a partial trailing row.
+                    repeat(columns - rowItems.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
@@ -106,6 +178,7 @@ private fun ChordPillButton(
     onToggle: () -> Unit,
     onPress: () -> Unit,
     onRelease: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val bg = if (selected) MaterialTheme.colorScheme.primary
              else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
@@ -113,8 +186,7 @@ private fun ChordPillButton(
              else MaterialTheme.colorScheme.onSurface
 
     Box(
-        modifier = Modifier
-            .size(width = 56.dp, height = 40.dp)
+        modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
             .pointerInput(momentary) {

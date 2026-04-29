@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,21 +18,26 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -52,6 +59,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
+import io.github.ranzlappen.synthpiano.data.ChordInversion
+import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.data.KeyboardLayout
 import io.github.ranzlappen.synthpiano.data.KeyboardPanel
 import io.github.ranzlappen.synthpiano.data.ModifierPanel
@@ -77,6 +86,8 @@ fun KeyboardLayoutEditor(
     initial: KeyboardLayout,
     onSave: (KeyboardLayout) -> Unit,
     onCancel: () -> Unit,
+    onSaveAs: ((KeyboardLayout) -> Unit)? = null,
+    existingNames: Set<String> = emptySet(),
 ) {
     val draftKbs = remember {
         mutableStateListOf<KeyboardPanel>().apply { addAll(initial.panels.map { it.normalized() }) }
@@ -84,6 +95,15 @@ fun KeyboardLayoutEditor(
     val draftMods = remember {
         mutableStateListOf<ModifierPanel>().apply { addAll(initial.modifiers.map { it.normalized() }) }
     }
+    var showSaveAs by remember { mutableStateOf(false) }
+
+    fun snapshotLayout(name: String, builtin: Boolean = false): KeyboardLayout =
+        KeyboardLayout(
+            name = name,
+            panels = draftKbs.map { it.normalized() },
+            modifiers = draftMods.map { it.normalized() },
+            builtin = builtin,
+        )
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
@@ -116,14 +136,13 @@ fun KeyboardLayoutEditor(
                     )
                 },
                 onSave = {
-                    val layout = KeyboardLayout(
+                    onSave(snapshotLayout(
                         name = if (initial.builtin) "Custom" else initial.name,
-                        panels = draftKbs.map { it.normalized() },
-                        modifiers = draftMods.map { it.normalized() },
-                        builtin = false,
-                    )
-                    onSave(layout)
+                    ))
                 },
+                onSaveAs = if (onSaveAs != null) {
+                    { showSaveAs = true }
+                } else null,
                 canSave = draftKbs.isNotEmpty() || draftMods.isNotEmpty(),
             )
             Spacer(Modifier.size(8.dp))
@@ -147,6 +166,18 @@ fun KeyboardLayoutEditor(
             )
         }
     }
+
+    if (showSaveAs && onSaveAs != null) {
+        SaveLayoutAsDialog(
+            initialName = if (initial.builtin) "" else initial.name,
+            takenNames = existingNames + BuiltInLayouts.ALL.map { it.name }.toSet(),
+            onDismiss = { showSaveAs = false },
+            onConfirm = { name ->
+                onSaveAs(snapshotLayout(name = name))
+                showSaveAs = false
+            },
+        )
+    }
 }
 
 @Composable
@@ -156,6 +187,7 @@ private fun EditorTopBar(
     onAddKeyboard: () -> Unit,
     onAddModifier: () -> Unit,
     onSave: () -> Unit,
+    onSaveAs: (() -> Unit)?,
     canSave: Boolean,
 ) {
     Row(
@@ -184,8 +216,62 @@ private fun EditorTopBar(
             Spacer(Modifier.width(4.dp))
             Text("+ Mods")
         }
+        if (onSaveAs != null) {
+            TextButton(onClick = onSaveAs, enabled = canSave) {
+                Icon(Icons.Filled.Save, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("Save as…")
+            }
+        }
         Button(onClick = onSave, enabled = canSave) { Text("Save") }
     }
+}
+
+@Composable
+private fun SaveLayoutAsDialog(
+    initialName: String,
+    takenNames: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+    val trimmed = name.trim()
+    val builtinNames = BuiltInLayouts.ALL.map { it.name }.toSet()
+    val collidesBuiltIn = trimmed in builtinNames
+    val isValid = trimmed.isNotEmpty() && !collidesBuiltIn
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save layout as") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Layout name") },
+                    singleLine = true,
+                )
+                when {
+                    collidesBuiltIn -> Text(
+                        "That name is reserved for a built-in layout.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    trimmed in takenNames -> Text(
+                        "A layout with this name already exists — saving will overwrite it.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(trimmed) }, enabled = isValid) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable
@@ -402,6 +488,7 @@ private fun EditableModifierView(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ModifierPanelEditDialog(
     panel: ModifierPanel,
@@ -411,18 +498,27 @@ private fun ModifierPanelEditDialog(
     var showLock by remember { mutableStateOf(panel.showLock) }
     var showShift by remember { mutableStateOf(panel.showShift) }
     var showZoom by remember { mutableStateOf(panel.showZoom) }
+    val selectedQualities = remember {
+        mutableStateListOf<ChordQuality>().apply { addAll(panel.qualities) }
+    }
+    val selectedInversions = remember {
+        mutableStateListOf<ChordInversion>().apply { addAll(panel.inversions) }
+    }
+    val allInversions = ModifierPanel.DEFAULT_INVERSIONS
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Modifier panel") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text(
-                    "Choose which sub-controls render inside this panel.",
+                    "Choose which sub-controls and chord pills render in this panel.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.size(4.dp))
                 ToggleRow(
                     label = "Show LOCK row",
                     checked = showLock,
@@ -438,11 +534,63 @@ private fun ModifierPanelEditDialog(
                     checked = showZoom,
                     onChange = { showZoom = it },
                 )
+                Text(
+                    "Chord qualities",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ChordQuality.entries.forEach { q ->
+                        FilterChip(
+                            selected = q in selectedQualities,
+                            onClick = {
+                                if (q in selectedQualities) selectedQualities.remove(q)
+                                else selectedQualities.add(q)
+                            },
+                            label = { Text(q.label()) },
+                        )
+                    }
+                }
+                Text(
+                    "Inversions",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    allInversions.forEach { inv ->
+                        FilterChip(
+                            selected = inv in selectedInversions,
+                            onClick = {
+                                if (inv in selectedInversions) selectedInversions.remove(inv)
+                                else selectedInversions.add(inv)
+                            },
+                            label = { Text(inv.label()) },
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                onApply(panel.copy(showLock = showLock, showShift = showShift, showZoom = showZoom))
+                // Preserve canonical declaration order; fall back to defaults
+                // when the user deselected every chip in a category.
+                val q = ChordQuality.entries.filter { it in selectedQualities }
+                    .ifEmpty { ChordQuality.entries.toList() }
+                val i = allInversions.filter { it in selectedInversions }
+                    .ifEmpty { ModifierPanel.DEFAULT_INVERSIONS }
+                onApply(
+                    panel.copy(
+                        showLock = showLock,
+                        showShift = showShift,
+                        showZoom = showZoom,
+                        qualities = q,
+                        inversions = i,
+                    ),
+                )
             }) { Text("Apply") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
