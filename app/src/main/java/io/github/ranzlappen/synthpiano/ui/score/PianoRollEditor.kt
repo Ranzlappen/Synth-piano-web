@@ -1,6 +1,7 @@
 package io.github.ranzlappen.synthpiano.ui.score
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -69,6 +73,8 @@ fun PianoRollEditor(
     selectedIndex: Int? = null,
     onSelectNote: (Int?) -> Unit = {},
     onAddNote: (midi: Int, startTicks: Int) -> Unit = { _, _ -> },
+    onUpdateNote: (index: Int, newNote: Note) -> Unit = { _, _ -> },
+    onDeleteNote: (index: Int) -> Unit = {},
     pxPerBeat: Dp = 80.dp,
     pxPerSemitone: Dp = 12.dp,
     keyboardWidth: Dp = 56.dp,
@@ -119,40 +125,131 @@ fun PianoRollEditor(
                 .horizontalScroll(hScroll)
                 .verticalScroll(vScroll),
         ) {
+            // Drag state shared between the drag detector and the renderer.
+            // Use rememberUpdatedState so gesture closures always see the latest
+            // score without restarting (re-keying) the gesture coroutine —
+            // otherwise updating a note mid-drag would cancel the drag.
+            val dragState = remember { mutableStateOf<DragState?>(null) }
+            val scoreSnap = rememberUpdatedState(score)
+            val onSelectSnap = rememberUpdatedState(onSelectNote)
+            val onAddSnap = rememberUpdatedState(onAddNote)
+            val onUpdateSnap = rememberUpdatedState(onUpdateNote)
+            val onDeleteSnap = rememberUpdatedState(onDeleteNote)
+            val resizeEdgePx = with(density) { 18.dp.toPx() }
+
             Canvas(
                 modifier = Modifier
                     .size(totalWidthDp, totalHeightDp)
-                    .pointerInput(score.notes, score.ppq) {
+                    .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = { offset ->
+                                val s = scoreSnap.value
                                 val hit = hitTestNote(
                                     offset = offset,
-                                    notes = score.notes,
-                                    ppq = score.ppq,
+                                    notes = s.notes,
+                                    ppq = s.ppq,
                                     pxPerBeat = pxPerBeatF,
                                     pxPerSemitone = pxPerSemitoneF,
                                     maxPitch = maxPitch,
                                 )
                                 if (hit != null) {
-                                    onSelectNote(hit)
+                                    onSelectSnap.value(hit)
                                 } else {
                                     val (midi, tick) = pixelToMusic(
                                         offset = offset,
-                                        ppq = score.ppq,
+                                        ppq = s.ppq,
                                         pxPerBeat = pxPerBeatF,
                                         pxPerSemitone = pxPerSemitoneF,
                                         maxPitch = maxPitch,
                                         minPitch = minPitch,
                                     )
+                                    val snap = (s.ppq / 16).coerceAtLeast(1)
                                     if (midi in minPitch..maxPitch) {
-                                        // Snap tick to 1/16 of a beat
-                                        val snap = (score.ppq / 16).coerceAtLeast(1)
                                         val snappedTick = (tick / snap) * snap
-                                        onAddNote(midi, snappedTick.coerceAtLeast(0))
+                                        onAddSnap.value(midi, snappedTick.coerceAtLeast(0))
                                     }
-                                    onSelectNote(null)
+                                    onSelectSnap.value(null)
                                 }
                             },
+                            onLongPress = { offset ->
+                                val s = scoreSnap.value
+                                val hit = hitTestNote(
+                                    offset = offset,
+                                    notes = s.notes,
+                                    ppq = s.ppq,
+                                    pxPerBeat = pxPerBeatF,
+                                    pxPerSemitone = pxPerSemitoneF,
+                                    maxPitch = maxPitch,
+                                )
+                                if (hit != null) {
+                                    onDeleteSnap.value(hit)
+                                    onSelectSnap.value(null)
+                                }
+                            },
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                val s = scoreSnap.value
+                                val hit = hitTestNote(
+                                    offset = offset,
+                                    notes = s.notes,
+                                    ppq = s.ppq,
+                                    pxPerBeat = pxPerBeatF,
+                                    pxPerSemitone = pxPerSemitoneF,
+                                    maxPitch = maxPitch,
+                                )
+                                if (hit != null) {
+                                    val n = s.notes[hit]
+                                    val noteX = n.startTicks.toFloat() / s.ppq * pxPerBeatF
+                                    val noteW = (n.durationTicks.toFloat() / s.ppq * pxPerBeatF).coerceAtLeast(2f)
+                                    val onRightEdge = offset.x >= noteX + noteW - resizeEdgePx
+                                    dragState.value = DragState(
+                                        index = hit,
+                                        mode = if (onRightEdge) DragMode.Resize else DragMode.Move,
+                                        original = n,
+                                    )
+                                    onSelectSnap.value(hit)
+                                }
+                            },
+                            onDrag = { change, _ ->
+                                val state = dragState.value ?: return@detectDragGestures
+                                val s = scoreSnap.value
+                                val n = state.original
+                                val snap = (s.ppq / 16).coerceAtLeast(1)
+                                when (state.mode) {
+                                    DragMode.Move -> {
+                                        val (newMidi, newTick) = pixelToMusic(
+                                            offset = change.position,
+                                            ppq = s.ppq,
+                                            pxPerBeat = pxPerBeatF,
+                                            pxPerSemitone = pxPerSemitoneF,
+                                            maxPitch = maxPitch,
+                                            minPitch = minPitch,
+                                        )
+                                        val snapped = (newTick / snap) * snap
+                                        onUpdateSnap.value(
+                                            state.index,
+                                            n.copy(
+                                                midi = newMidi.coerceIn(minPitch, maxPitch),
+                                                startTicks = snapped.coerceAtLeast(0),
+                                            ),
+                                        )
+                                    }
+                                    DragMode.Resize -> {
+                                        val newEndTick = ((change.position.x / pxPerBeatF) * s.ppq).toInt()
+                                        val rawDur = newEndTick - n.startTicks
+                                        val snappedDur = ((rawDur + snap / 2) / snap) * snap
+                                        onUpdateSnap.value(
+                                            state.index,
+                                            n.copy(durationTicks = snappedDur.coerceAtLeast(snap)),
+                                        )
+                                    }
+                                }
+                            },
+                            onDragEnd = { dragState.value = null },
+                            onDragCancel = { dragState.value = null },
                         )
                     },
             ) {
@@ -188,6 +285,14 @@ fun PianoRollEditor(
         }
     }
 }
+
+private enum class DragMode { Move, Resize }
+
+private data class DragState(
+    val index: Int,
+    val mode: DragMode,
+    val original: Note,
+)
 
 private fun beatsTotal(score: MidiScore): Float {
     if (score.notes.isEmpty()) return 0f
