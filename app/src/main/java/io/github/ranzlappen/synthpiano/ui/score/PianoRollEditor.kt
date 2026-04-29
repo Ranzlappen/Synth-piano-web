@@ -78,6 +78,16 @@ private enum class PinchAxis { Horizontal, Vertical, Both }
  */
 private const val PINCH_AXIS_LOCK_RATIO = 1.5f
 
+/**
+ * Minimum relative zoom change accepted per pinch event. Per-frame finger
+ * jitter on a stable pinch produces ~0.1–0.3% span oscillation; below this
+ * threshold we keep the previous zoom so the canvas does not flicker. The
+ * dead-band only filters per-event noise — `startSpanX` / `startZoomX` are
+ * not rebased, so accumulating motion still drives the zoom on the next
+ * event when the user actually moves further.
+ */
+private const val PINCH_ZOOM_DEADBAND = 0.002f
+
 private val CHANNEL_COLORS = listOf(
     Color(0xFF1976D2), // 0  blue
     Color(0xFFD32F2F), // 1  red
@@ -134,11 +144,16 @@ fun PianoRollEditor(
     val hScroll = rememberScrollState()
     val vScroll = rememberScrollState()
 
-    // Latest-value snapshots for the pinch handler so changing zoom doesn't
-    // re-key the gesture coroutine and cancel an in-flight pinch.
+    // Latest-value snapshots for the gesture handlers. The pinch / tap /
+    // drag pointerInput modifiers are keyed on Unit so the suspending
+    // coroutine is never restarted; without these snapshots their lambdas
+    // would close over the first composition's zoom (= 1f) and tap/drag
+    // hit-tests would reference the un-zoomed grid forever.
     val zoomXSnap = rememberUpdatedState(zoomX)
     val zoomYSnap = rememberUpdatedState(zoomY)
     val onZoomSnap = rememberUpdatedState(onZoomChange)
+    val pxPerBeatSnap = rememberUpdatedState(pxPerBeatF)
+    val pxPerSemitoneSnap = rememberUpdatedState(pxPerSemitoneF)
 
     Row(modifier = modifier.fillMaxSize()) {
         // Fixed keyboard column on the left
@@ -211,20 +226,24 @@ fun PianoRollEditor(
                             var axis = PinchAxis.Both
                             // Sub-pixel accumulators for scroll deltas.
                             // ScrollState rounds its value to Int on every
-                            // dispatch, so per-event focal-point and pan
-                            // deltas smaller than 1 px would round to zero
-                            // and the focal point would drift toward y=0
-                            // (i.e., the canvas's natural top anchor) over
+                            // dispatch, so per-event sub-px scroll motion
+                            // would round to zero and the focal point would
+                            // drift toward the canvas's top-left anchor over
                             // the course of a slow zoom. Accumulate the
                             // float deltas here and dispatch only the
                             // integer part; carry the fractional + clamped
                             // remainder to the next event.
                             var pendingHScroll = 0f
                             var pendingVScroll = 0f
-                            // Captured in canvas pixels at the previous
-                            // event's canvas frame; rescaled by the zoom
-                            // ratio before computing the pan delta so a
-                            // stationary finger pair pans by zero.
+                            // Content-space (un-zoomed) anchor under the
+                            // centroid at re-baseline. Holding this fixed
+                            // and recomputing the absolute scroll target
+                            // each event self-heals the 1-frame lag between
+                            // committing zoom and the canvas resizing —
+                            // delta accumulation would otherwise compound
+                            // any clamp into permanent focal-point drift.
+                            var focalContentX = 0f
+                            var focalContentY = 0f
                             var lastCentroid = Offset.Zero
 
                             while (true) {
@@ -262,6 +281,10 @@ fun PianoRollEditor(
                                     startZoomX = zoomXSnap.value
                                     startZoomY = zoomYSnap.value
                                     lastCentroid = centroid
+                                    focalContentX = if (startZoomX > 0f)
+                                        (centroid.x + hScroll.value) / startZoomX else 0f
+                                    focalContentY = if (startZoomY > 0f)
+                                        (centroid.y + vScroll.value) / startZoomY else 0f
                                     pendingHScroll = 0f
                                     pendingVScroll = 0f
                                     active = false
@@ -308,41 +331,49 @@ fun PianoRollEditor(
                                             .coerceIn(PIANO_ROLL_ZOOM_MIN_Y, PIANO_ROLL_ZOOM_MAX_Y)
                                     }
 
-                                    val ratioX = if (oldZoomX > 0f) nextX / oldZoomX else 1f
-                                    val ratioY = if (oldZoomY > 0f) nextY / oldZoomY else 1f
+                                    // Per-event dead-band: filter sub-threshold
+                                    // span jitter so a stable pinch doesn't
+                                    // flicker. startSpan/startZoom aren't
+                                    // rebased, so accumulating motion still
+                                    // drives zoom on a later event.
+                                    if (oldZoomX > 0f &&
+                                        abs(nextX - oldZoomX) / oldZoomX < PINCH_ZOOM_DEADBAND
+                                    ) nextX = oldZoomX
+                                    if (oldZoomY > 0f &&
+                                        abs(nextY - oldZoomY) / oldZoomY < PINCH_ZOOM_DEADBAND
+                                    ) nextY = oldZoomY
 
                                     if (nextX != oldZoomX || nextY != oldZoomY) {
                                         onZoomSnap.value(nextX, nextY)
                                     }
 
-                                    // Focal-point preservation: keep the
-                                    // canvas point under the centroid at
-                                    // the same screen coordinate after
-                                    // zoom. delta = focal × (ratio − 1).
-                                    // 2-finger pan: scroll opposite to the
-                                    // centroid's screen-space movement.
-                                    // Both deltas accumulate into the
-                                    // pending* floats; the integer part is
-                                    // dispatched and the residual carries
-                                    // over so a slow zoom doesn't lose the
-                                    // sub-pixel scroll on every event.
-                                    val lastInNewFrame = Offset(
-                                        lastCentroid.x * ratioX,
-                                        lastCentroid.y * ratioY,
-                                    )
-                                    val pan = centroid - lastInNewFrame
-                                    pendingHScroll += centroid.x * (ratioX - 1f) - pan.x
-                                    pendingVScroll += centroid.y * (ratioY - 1f) - pan.y
-
-                                    val wholeH = pendingHScroll.toInt()
-                                    if (wholeH != 0) {
-                                        val consumed = hScroll.dispatchRawDelta(wholeH.toFloat())
-                                        pendingHScroll -= consumed
+                                    // Absolute scroll target: keep the content
+                                    // point captured under the centroid at
+                                    // pinch-start anchored to the live
+                                    // centroid. centroid drift folds in via
+                                    // the −centroid term, so this also
+                                    // handles 2-finger pan along the locked
+                                    // axis. Recomputed against the current
+                                    // hScroll.value each event so a one-frame
+                                    // canvas-resize lag self-corrects on the
+                                    // next event instead of compounding.
+                                    if (axis != PinchAxis.Vertical) {
+                                        val targetH = focalContentX * nextX - centroid.x
+                                        pendingHScroll += targetH - hScroll.value
+                                        val wholeH = pendingHScroll.toInt()
+                                        if (wholeH != 0) {
+                                            val consumed = hScroll.dispatchRawDelta(wholeH.toFloat())
+                                            pendingHScroll -= consumed
+                                        }
                                     }
-                                    val wholeV = pendingVScroll.toInt()
-                                    if (wholeV != 0) {
-                                        val consumed = vScroll.dispatchRawDelta(wholeV.toFloat())
-                                        pendingVScroll -= consumed
+                                    if (axis != PinchAxis.Horizontal) {
+                                        val targetV = focalContentY * nextY - centroid.y
+                                        pendingVScroll += targetV - vScroll.value
+                                        val wholeV = pendingVScroll.toInt()
+                                        if (wholeV != 0) {
+                                            val consumed = vScroll.dispatchRawDelta(wholeV.toFloat())
+                                            pendingVScroll -= consumed
+                                        }
                                     }
 
                                     // Cancel any in-flight single-finger drag
@@ -365,8 +396,8 @@ fun PianoRollEditor(
                                     offset = offset,
                                     notes = s.notes,
                                     ppq = s.ppq,
-                                    pxPerBeat = pxPerBeatF,
-                                    pxPerSemitone = pxPerSemitoneF,
+                                    pxPerBeat = pxPerBeatSnap.value,
+                                    pxPerSemitone = pxPerSemitoneSnap.value,
                                     maxPitch = maxPitch,
                                 )
                                 if (hit != null) {
@@ -375,8 +406,8 @@ fun PianoRollEditor(
                                     val (midi, tick) = pixelToMusic(
                                         offset = offset,
                                         ppq = s.ppq,
-                                        pxPerBeat = pxPerBeatF,
-                                        pxPerSemitone = pxPerSemitoneF,
+                                        pxPerBeat = pxPerBeatSnap.value,
+                                        pxPerSemitone = pxPerSemitoneSnap.value,
                                         maxPitch = maxPitch,
                                         minPitch = minPitch,
                                     )
@@ -394,8 +425,8 @@ fun PianoRollEditor(
                                     offset = offset,
                                     notes = s.notes,
                                     ppq = s.ppq,
-                                    pxPerBeat = pxPerBeatF,
-                                    pxPerSemitone = pxPerSemitoneF,
+                                    pxPerBeat = pxPerBeatSnap.value,
+                                    pxPerSemitone = pxPerSemitoneSnap.value,
                                     maxPitch = maxPitch,
                                 )
                                 if (hit != null) {
@@ -418,14 +449,14 @@ fun PianoRollEditor(
                                 offset = down.position,
                                 notes = s.notes,
                                 ppq = s.ppq,
-                                pxPerBeat = pxPerBeatF,
-                                pxPerSemitone = pxPerSemitoneF,
+                                pxPerBeat = pxPerBeatSnap.value,
+                                pxPerSemitone = pxPerSemitoneSnap.value,
                                 maxPitch = maxPitch,
                             ) ?: return@awaitEachGesture
 
                             val n = s.notes[hit]
-                            val noteX = n.startTicks.toFloat() / s.ppq * pxPerBeatF
-                            val noteW = (n.durationTicks.toFloat() / s.ppq * pxPerBeatF).coerceAtLeast(2f)
+                            val noteX = n.startTicks.toFloat() / s.ppq * pxPerBeatSnap.value
+                            val noteW = (n.durationTicks.toFloat() / s.ppq * pxPerBeatSnap.value).coerceAtLeast(2f)
                             val onRightEdge = down.position.x >= noteX + noteW - resizeEdgePx
                             val mode = if (onRightEdge) DragMode.Resize else DragMode.Move
 
@@ -454,8 +485,8 @@ fun PianoRollEditor(
                                         val (newMidi, newTick) = pixelToMusic(
                                             offset = change.position,
                                             ppq = curScore.ppq,
-                                            pxPerBeat = pxPerBeatF,
-                                            pxPerSemitone = pxPerSemitoneF,
+                                            pxPerBeat = pxPerBeatSnap.value,
+                                            pxPerSemitone = pxPerSemitoneSnap.value,
                                             maxPitch = maxPitch,
                                             minPitch = minPitch,
                                         )
@@ -469,7 +500,7 @@ fun PianoRollEditor(
                                         )
                                     }
                                     DragMode.Resize -> {
-                                        val newEndTick = ((change.position.x / pxPerBeatF) * curScore.ppq).toInt()
+                                        val newEndTick = ((change.position.x / pxPerBeatSnap.value) * curScore.ppq).toInt()
                                         val rawDur = newEndTick - original.startTicks
                                         val snappedDur = ((rawDur + snapTicks / 2) / snapTicks) * snapTicks
                                         onUpdateSnap.value(
