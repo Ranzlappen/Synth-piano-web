@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <files-path name="recordings" path="recordings/" />
+    <!-- Primary location for recordings (post-migration). Visible to the user
+         under Android/data/<package>/files/recordings/ on built-in storage. -->
+    <external-files-path name="recordings_external" path="recordings/" />
+
+    <!-- Legacy location: kept so the existing FileProvider share keeps
+         working for any recording that wasn't moved by the one-shot
+         migration (e.g. if external storage was briefly unmounted). Can be
+         removed once we're confident every install has migrated. -->
+    <files-path name="recordings_legacy" path="recordings/" />
 </paths>

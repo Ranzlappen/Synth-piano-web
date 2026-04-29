@@ -15,11 +15,15 @@ import kotlin.concurrent.thread
 
 /**
  * Drains stereo float frames from the native engine's recording ring and
- * writes a 16-bit PCM WAV file to app-specific storage. Lock-free: the
- * audio thread writes the ring; this class reads on a background thread.
+ * writes a 16-bit PCM WAV file to app-specific external storage. Lock-free:
+ * the audio thread writes the ring; this class reads on a background thread.
  *
- * Files land in `<filesDir>/recordings/synth_<timestamp>.wav` and are
- * shared via FileProvider with authority `${packageName}.fileprovider`.
+ * Files land in `<getExternalFilesDir>/recordings/synth_<timestamp>.wav` and
+ * are shared via FileProvider with authority `${packageName}.fileprovider`.
+ * That path lives under `Android/data/<package>/files/recordings/` on the
+ * built-in user-visible flash, so files are reachable via the system Files
+ * app and USB MTP — see [recordingsDir]. We fall back to internal `filesDir`
+ * if external storage is unmounted (very rare on emulated storage).
  */
 class WavRecorder(private val synth: SynthController) {
 
@@ -30,7 +34,7 @@ class WavRecorder(private val synth: SynthController) {
     /** Begins recording; returns the absolute path of the WAV file or null on error. */
     fun start(ctx: Context): String? {
         if (running) return currentFile?.absolutePath
-        val dir = File(ctx.filesDir, "recordings").apply { mkdirs() }
+        val dir = recordingsDir(ctx).apply { mkdirs() }
         val name = "synth_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.wav"
         val file = File(dir, name)
         currentFile = file
@@ -157,5 +161,20 @@ class WavRecorder(private val synth: SynthController) {
         raf.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(totalSize.toInt()).array())
         raf.seek(40)
         raf.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(dataBytes.toInt()).array())
+    }
+
+    companion object {
+        /**
+         * Single source of truth for where recordings live. Prefers app-specific
+         * external storage (`Android/data/<package>/files/recordings/`) so the
+         * user can browse files via the system Files app and USB MTP without
+         * any permissions; falls back to internal `filesDir` if external
+         * storage is unavailable.
+         */
+        fun recordingsDir(ctx: Context): File {
+            val external = ctx.getExternalFilesDir(null)
+            val base = external ?: ctx.filesDir
+            return File(base, "recordings")
+        }
     }
 }
