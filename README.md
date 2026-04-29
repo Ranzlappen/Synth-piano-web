@@ -31,7 +31,7 @@ A Kotlin/Compose port of [Ranzlappen/synth-piano](https://github.com/Ranzlappen/
 - **Standard MIDI File I/O** — open and save `.mid` via the Storage Access Framework. Reader supports format 0 and 1 (multi-track flattened); writer always emits format 0. Backed by [ktmidi](https://github.com/atsushieno/ktmidi).
 - **USB MIDI input** — plug a controller via OTG, no permission prompt needed.
 - **Hardware keyboard** — Bluetooth/USB QWERTY plays notes (defaults match the Python ASDFG layout, fully remappable in settings).
-- **Recording** — capture the master output to a WAV file plus a sibling `.mid` of the live performance with microsecond timing. Both land in app-specific storage and share via the system sheet.
+- **Recording** — capture the master output to a WAV file plus a sibling `.mid` of the live performance with microsecond timing. Files land under `Android/data/<package>/files/recordings/` (visible via the system Files app and USB MTP, no permissions). The Recordings list offers in-app Share, **Export to Downloads** (publishes to `Download/Synth Piano/` via MediaStore on Android 10+ so every file manager and music app sees it), and Delete.
 - **Material 3** dynamic theming, landscape-locked, responsive on tablets and foldables.
 
 ## Build & Development

@@ -111,4 +111,9 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_share">Share</string>
     <string name="action_delete">Delete</string>
+    <string name="action_export">Export to Downloads</string>
+
+    <!-- Export feedback -->
+    <string name="recording_exported">Saved %1$d file(s) to Download/Synth Piano</string>
+    <string name="recording_export_failed">Export failed</string>
 </resources>

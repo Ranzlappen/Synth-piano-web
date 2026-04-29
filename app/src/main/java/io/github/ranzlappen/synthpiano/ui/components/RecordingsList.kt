@@ -1,6 +1,7 @@
 package io.github.ranzlappen.synthpiano.ui.components
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
@@ -26,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +37,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
+import io.github.ranzlappen.synthpiano.audio.RecordingExporter
 import io.github.ranzlappen.synthpiano.audio.WavRecorder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.RandomAccessFile
 import java.text.SimpleDateFormat
@@ -42,7 +49,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Lists every WAV recording under [Context.filesDir]/recordings, with
+ * Lists every WAV recording under [WavRecorder.recordingsDir], with
  * inline share + delete actions. Refreshes whenever [refreshTick] changes
  * (callers bump it after a recording stops).
  *
@@ -56,10 +63,36 @@ fun RecordingsList(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var entries by remember { mutableStateOf<List<RecordingEntry>>(emptyList()) }
 
     LaunchedEffect(refreshTick) {
         entries = scanRecordings(ctx)
+    }
+
+    val onExport: (RecordingEntry) -> Unit = remember(ctx, recorder) {
+        { entry ->
+            if (RecordingExporter.isMediaStoreSupported) {
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        RecordingExporter.exportWavAndMidi(ctx, entry.path)
+                    }
+                    val msg = if (result.isSuccess) {
+                        ctx.getString(R.string.recording_exported, result.exported.size)
+                    } else {
+                        ctx.getString(R.string.recording_export_failed)
+                    }
+                    Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                // Pre-Q: MediaStore.Downloads doesn't exist. Fall back to the
+                // share sheet, which on every Android version offers "Save to
+                // Files" as one of the targets.
+                val midi = entry.path.removeSuffix(".wav") + ".mid"
+                val paths = listOf(entry.path) + listOfNotNull(File(midi).takeIf { it.exists() }?.absolutePath)
+                recorder.shareFiles(ctx, paths)
+            }
+        }
     }
 
     if (entries.isEmpty()) {
@@ -81,8 +114,12 @@ fun RecordingsList(
             RecordingRow(
                 entry = entry,
                 onShare = { recorder.share(ctx, entry.path) },
+                onExport = { onExport(entry) },
                 onDelete = {
                     runCatching { File(entry.path).delete() }
+                    // Also remove the sibling .mid so the next recording with the
+                    // same name (rare but possible) doesn't get an orphan pair.
+                    runCatching { File(entry.path.removeSuffix(".wav") + ".mid").delete() }
                     entries = entries.filterNot { it.path == entry.path }
                 },
             )
@@ -94,6 +131,7 @@ fun RecordingsList(
 private fun RecordingRow(
     entry: RecordingEntry,
     onShare: () -> Unit,
+    onExport: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Row(
@@ -123,6 +161,13 @@ private fun RecordingRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        IconButton(onClick = onExport) {
+            Icon(
+                Icons.Filled.FileDownload,
+                contentDescription = stringResource(R.string.action_export),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         IconButton(onClick = onShare) {
             Icon(
                 Icons.Filled.IosShare,
@@ -147,7 +192,7 @@ private data class RecordingEntry(
 )
 
 private fun scanRecordings(ctx: Context): List<RecordingEntry> {
-    val dir = File(ctx.filesDir, "recordings")
+    val dir = WavRecorder.recordingsDir(ctx)
     if (!dir.exists()) return emptyList()
     val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".wav") } ?: return emptyList()
     return files
