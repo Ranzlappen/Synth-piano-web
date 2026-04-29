@@ -7,34 +7,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
-import io.github.ranzlappen.synthpiano.data.Score
-import io.github.ranzlappen.synthpiano.data.parseScoreJson
+import io.github.ranzlappen.synthpiano.data.midi.MidiScore
+import io.github.ranzlappen.synthpiano.data.midi.MidiTiming
+import io.github.ranzlappen.synthpiano.data.midi.SmfReader
+import io.github.ranzlappen.synthpiano.data.midi.TempoEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /**
  * App-scoped score state. Held in [io.github.ranzlappen.synthpiano.ui.SynthAppRoot]
- * via `remember`, so the loaded score survives switching tabs (the previous
- * implementation kept it in a screen-local `remember` inside `ComposerTab`,
- * which was discarded on every tab change).
+ * via `remember`, so the loaded score survives switching tabs.
  *
- * On first composition the root calls [loadFromPrefs] to re-hydrate the score
- * from the persisted `LAST_SCORE_URI`. The `OpenDocument` launcher in
- * `ComposerTab` calls `takePersistableUriPermission` so the URI remains
- * readable across process death.
+ * Canonical state is a [MidiScore] (event-based, full SMF fidelity). The
+ * `OpenDocument` launcher in `ComposerTab` calls
+ * `takePersistableUriPermission` so the URI remains readable across
+ * process death.
  */
 class AppScoreState(
     private val ctx: Context,
     private val prefs: PreferencesRepository,
 ) {
-    var score: Score? by mutableStateOf(null)
+    var midiScore: MidiScore? by mutableStateOf(null)
     var status: String? by mutableStateOf(null)
 
     suspend fun loadFromUri(uri: Uri, persist: Boolean = true) {
-        val (loaded, msg) = readScoreFromUri(ctx, uri)
+        val (loaded, msg) = readMidiScoreFromUri(ctx, uri)
         if (loaded != null) {
-            score = loaded
+            midiScore = loaded
             status = "Loaded${loaded.title?.let { ": $it" } ?: ""}"
             if (persist) prefs.setLastScoreUri(uri.toString())
         } else {
@@ -43,9 +43,9 @@ class AppScoreState(
     }
 
     suspend fun loadFromAsset(assetPath: String) {
-        val (loaded, msg) = readScoreFromAsset(ctx, assetPath)
+        val (loaded, msg) = readMidiScoreFromAsset(ctx, assetPath)
         if (loaded != null) {
-            score = loaded
+            midiScore = loaded
             status = "Demo: ${loaded.title ?: assetPath}"
         } else {
             status = msg
@@ -53,8 +53,20 @@ class AppScoreState(
     }
 
     fun newEmpty(tempoBpm: Int) {
-        score = Score(notes = emptyList(), title = "Untitled", tempoBpm = tempoBpm)
+        midiScore = MidiScore(
+            ppq = MidiTiming.DEFAULT_PPQ,
+            title = "Untitled",
+            tempoMap = mutableListOf(
+                TempoEvent(0, MidiTiming.bpmToMicrosPerQuarter(tempoBpm)),
+            ),
+        )
         status = "New empty score"
+    }
+
+    /** Replace the current score (e.g. after the editor mutates it). */
+    fun replace(newScore: MidiScore, newStatus: String? = null) {
+        midiScore = newScore
+        if (newStatus != null) status = newStatus
     }
 
     /** Re-hydrate from `LAST_SCORE_URI` if one was persisted. Silent on failure. */
@@ -64,24 +76,21 @@ class AppScoreState(
     }
 }
 
-internal suspend fun readScoreFromUri(ctx: Context, uri: Uri): Pair<Score?, String?> =
+internal suspend fun readMidiScoreFromUri(ctx: Context, uri: Uri): Pair<MidiScore?, String?> =
     withContext(Dispatchers.IO) {
         runCatching {
-            val text = ctx.contentResolver.openInputStream(uri)?.bufferedReader()
-                ?.use { it.readText() }
-                ?: return@runCatching Pair<Score?, String?>(null, "Could not open file")
-            val s = parseScoreJson(text)
-            Pair<Score?, String?>(s, null)
-        }.getOrElse { t -> Pair<Score?, String?>(null, "Failed: ${t.message}") }
+            val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return@runCatching Pair<MidiScore?, String?>(null, "Could not open file")
+            Pair<MidiScore?, String?>(SmfReader.read(bytes), null)
+        }.getOrElse { t -> Pair<MidiScore?, String?>(null, "Failed: ${t.message}") }
     }
 
-internal suspend fun readScoreFromAsset(ctx: Context, assetPath: String): Pair<Score?, String?> =
+internal suspend fun readMidiScoreFromAsset(ctx: Context, assetPath: String): Pair<MidiScore?, String?> =
     withContext(Dispatchers.IO) {
         runCatching {
-            val text = ctx.assets.open(assetPath).bufferedReader().use { it.readText() }
-            val s = parseScoreJson(text)
-            Pair<Score?, String?>(s, null)
-        }.getOrElse { t -> Pair<Score?, String?>(null, "Failed: ${t.message}") }
+            val bytes = ctx.assets.open(assetPath).use { it.readBytes() }
+            Pair<MidiScore?, String?>(SmfReader.read(bytes), null)
+        }.getOrElse { t -> Pair<MidiScore?, String?>(null, "Failed: ${t.message}") }
     }
 
 internal fun tryTakePersistablePermission(ctx: Context, uri: Uri) {

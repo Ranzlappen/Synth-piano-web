@@ -145,6 +145,8 @@ dependencies {
 
     implementation(libs.oboe)
 
+    implementation(libs.ktmidi)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

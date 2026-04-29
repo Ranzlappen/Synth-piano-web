@@ -1,6 +1,7 @@
 package io.github.ranzlappen.synthpiano.audio
 
 import android.content.Context
+import io.github.ranzlappen.synthpiano.data.midi.SmfRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -12,14 +13,23 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * Session-level wrapper around [WavRecorder] that exposes StateFlow-driven
- * recording status to the Compose UI. The session is meant to be hoisted
- * once at the root of the workstation so every tab observes the same
- * recording chip state.
+ * Session-level wrapper around [WavRecorder] + [SmfRecorder] that exposes
+ * StateFlow-driven recording status to the Compose UI. The session is
+ * meant to be hoisted once at the root of the workstation so every tab
+ * observes the same recording chip state.
+ *
+ * Each Stop produces a paired sidecar:
+ *   `<filesDir>/recordings/synth_<ts>.wav`
+ *   `<filesDir>/recordings/synth_<ts>.mid`
+ *
+ * The `.mid` file is a real Standard MIDI File written via the same
+ * pipeline used for editor exports — so a recording can be re-imported,
+ * edited, and exported again losslessly (modulo the recorder's
+ * fixed-tempo timing model).
  */
 class RecordingSession(
     private val recorder: WavRecorder,
-    private val scoreRecorder: ScoreRecorder,
+    private val smfRecorder: SmfRecorder,
     private val scope: CoroutineScope,
 ) {
     private val _isRecording = MutableStateFlow(false)
@@ -44,7 +54,7 @@ class RecordingSession(
         if (_isRecording.value) return
         val path = recorder.start(ctx) ?: return
         _lastPath.value = path
-        scoreRecorder.start(scoreSiblingPath(path))
+        smfRecorder.start(midiSiblingPath(path))
         _isRecording.value = true
         _elapsedMs.value = 0L
         val startedAt = System.currentTimeMillis()
@@ -60,7 +70,7 @@ class RecordingSession(
         if (!_isRecording.value) return
         recorder.stop()
         val title = _lastPath.value?.let { File(it).nameWithoutExtension }
-        _lastScorePath.value = scoreRecorder.stop(title = title)
+        _lastScorePath.value = smfRecorder.stop(title = title)
         _isRecording.value = false
         tickJob?.cancel()
         tickJob = null
@@ -71,7 +81,7 @@ class RecordingSession(
         if (paths.isNotEmpty()) recorder.shareFiles(ctx, paths)
     }
 
-    private fun scoreSiblingPath(wavPath: String): String =
-        if (wavPath.endsWith(".wav", ignoreCase = true)) wavPath.dropLast(4) + ".json"
-        else "$wavPath.json"
+    private fun midiSiblingPath(wavPath: String): String =
+        if (wavPath.endsWith(".wav", ignoreCase = true)) wavPath.dropLast(4) + ".mid"
+        else "$wavPath.mid"
 }

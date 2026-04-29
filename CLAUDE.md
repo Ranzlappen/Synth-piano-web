@@ -8,7 +8,7 @@ Single-module Android app. Audio runs entirely in C++ on the audio thread; Kotli
 
 * **`app/src/main/java/.../`** (Kotlin) — Compose UI, JNI wrapper, score model, MIDI manager, WAV recorder, hardware keyboard mapper.
 * **`app/src/main/cpp/`** (C++17) — Oboe audio stream callback, 16-voice polyphonic synth, oscillators (sine/square/saw/triangle), ADSR envelope, JNI bridge.
-* **`app/src/main/assets/scores/`** — Bundled demo scores in the same JSON format as the Python source.
+* **`app/src/main/assets/scores/`** — Bundled demo scores as Standard MIDI Files (`.mid`).
 
 ## Build & Development
 
@@ -27,7 +27,7 @@ Single-module Android app. Audio runs entirely in C++ on the audio thread; Kotli
 
 * **The audio thread does not allocate, lock, or call into the JVM.** Communication from Kotlin to the engine goes through `std::atomic` parameters and a lock-free single-producer/single-consumer ring of `NoteEvent` records read inside `onAudioReady`. Do not call `JNIEnv*` from inside the Oboe callback.
 * **All DSP lives in C++.** Kotlin must not implement oscillators, filters, or envelopes. The JNI surface is intentionally narrow (`noteOn`, `noteOff`, `setWaveform`, `setAdsr`, `start`, `stop`, `getMasterPeak`).
-* **Score JSON format follows the Python source.** Top-level shape is `{"notes": [{"note": <str|[str,...]>, "duration": <number>}, ...]}`. New fields require a `version` bump; the parser tolerates legacy schema (no `version` = v1).
+* **Score format is Standard MIDI File (`.mid`).** Read/written via the ktmidi library wrapped by `data/midi/SmfReader` and `data/midi/SmfWriter`. The in-memory domain model is `MidiScore` (event-based: PPQ + tempo map + notes + opaquely-preserved non-note events). The piano-roll editor in `ui/score/PianoRollEditor` mutates `MidiScore` directly. Live MIDI input is captured to `.mid` via `data/midi/SmfRecorder`, paired with the WAV sidecar in `<filesDir>/recordings/`.
 * **Landscape-only.** Manifest pins `screenOrientation="landscape"`. Compose code may assume `screenWidthDp >= 480`.
 * **Package ID is permanent**: `io.github.ranzlappen.synthpiano`. Do not rename without a Play Store migration plan.
 * **Hardware keyboard mapping defaults match the Python source** (ASDFG... white notes, WRTUI... black, `< Y X C V B N M , . -` chord pads). Defaults are stored in code; user remaps live in DataStore.
@@ -84,7 +84,7 @@ Synth-piano-web/
 │   ├── proguard-rules.pro
 │   └── src/main/
 │       ├── AndroidManifest.xml
-│       ├── assets/scores/             # Bundled demo scores (JSON)
+│       ├── assets/scores/             # Bundled demo scores (.mid)
 │       ├── cpp/                       # Native Oboe + synth DSP
 │       ├── java/io/github/ranzlappen/synthpiano/
 │       │   ├── MainActivity.kt
