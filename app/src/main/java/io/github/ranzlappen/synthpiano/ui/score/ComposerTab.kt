@@ -69,7 +69,8 @@ import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.Score
 import io.github.ranzlappen.synthpiano.data.ScorePlayer
 import io.github.ranzlappen.synthpiano.data.ScoreStep
-import io.github.ranzlappen.synthpiano.data.toJsonString
+import io.github.ranzlappen.synthpiano.data.midi.SmfWriter
+import io.github.ranzlappen.synthpiano.data.midi.toMidiScore
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 import io.github.ranzlappen.synthpiano.ui.components.HorizontalDragHandle
 import io.github.ranzlappen.synthpiano.ui.components.RecordingsList
@@ -115,7 +116,7 @@ fun ComposerTab(
     }
 
     val saveLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json"),
+        contract = ActivityResultContracts.CreateDocument("audio/midi"),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         val current = score ?: return@rememberLauncherForActivityResult
@@ -154,13 +155,18 @@ fun ComposerTab(
                 if (isPlaying) player.stop() else player.start(s, tempo)
             },
             status = status,
-            onLoadJson = { openLauncher.launch(arrayOf("application/json", "*/*")) },
+            onLoadJson = {
+                // MIME filter is permissive — many file pickers don't recognise
+                // audio/midi for .mid files, so we fall back to */* so the user
+                // can always pick one. The reader validates by magic bytes.
+                openLauncher.launch(arrayOf("audio/midi", "audio/x-midi", "*/*"))
+            },
             onLoadDemo = { name ->
                 scope.launch { scoreState.loadFromAsset("scores/$name") }
             },
             onNew = { scoreState.newEmpty(tempo) },
             onSaveAs = {
-                val name = (score?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.json" }
+                val name = (score?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.mid" }
                 saveLauncher.launch(name)
             },
             modifier = paneModifier,
@@ -537,8 +543,8 @@ private fun RecordingsPane(
 
 private suspend fun writeScoreToUri(ctx: Context, uri: Uri, score: Score): Boolean = withContext(Dispatchers.IO) {
     runCatching {
-        val text = score.toJsonString(prettyPrint = true)
-        ctx.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { it.write(text) }
+        val bytes = SmfWriter.write(score.toMidiScore())
+        ctx.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
         true
     }.getOrElse { false }
 }
