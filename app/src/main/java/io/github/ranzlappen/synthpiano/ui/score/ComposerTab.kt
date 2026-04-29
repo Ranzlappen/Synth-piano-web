@@ -66,9 +66,11 @@ import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.audio.WavRecorder
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
+import io.github.ranzlappen.synthpiano.audio.MidiScorePlayer
 import io.github.ranzlappen.synthpiano.data.Score
 import io.github.ranzlappen.synthpiano.data.ScorePlayer
 import io.github.ranzlappen.synthpiano.data.ScoreStep
+import io.github.ranzlappen.synthpiano.data.midi.MidiScore
 import io.github.ranzlappen.synthpiano.data.midi.SmfWriter
 import io.github.ranzlappen.synthpiano.data.midi.toMidiScore
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
@@ -94,13 +96,13 @@ fun ComposerTab(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val score = scoreState.score
+    val midiScore = scoreState.midiScore
     val status = scoreState.status
     val tempo by prefs.tempoBpm.collectAsState(initial = 120)
 
-    val player = remember { ScorePlayer(scope, synth) }
+    val player = remember { MidiScorePlayer(scope, synth) }
     val isPlaying by player.isPlaying.collectAsState()
-    val currentStep by player.currentStep.collectAsState()
+    val currentTick by player.currentTick.collectAsState()
 
     val recorder = remember { WavRecorder(synth) }
     var recordingsRefreshTick by remember { mutableIntStateOf(0) }
@@ -119,9 +121,9 @@ fun ComposerTab(
         contract = ActivityResultContracts.CreateDocument("audio/midi"),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val current = score ?: return@rememberLauncherForActivityResult
+        val current = midiScore ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val ok = writeScoreToUri(ctx, uri, current)
+            val ok = writeMidiScoreToUri(ctx, uri, current)
             scoreState.status = if (ok) ctx.getString(R.string.score_saved)
                                 else ctx.getString(R.string.score_save_failed, "I/O error")
         }
@@ -143,16 +145,16 @@ fun ComposerTab(
     val editorHeightDp by prefs.composerEditorHeightDp.collectAsState(initial = 600f)
 
     val editorPaneFactory: @Composable (Modifier) -> Unit = { paneModifier ->
-        EditorPane(
-            score = score,
-            onScoreChange = { scoreState.score = it },
+        MidiEditorPane(
+            midiScore = midiScore,
+            onScoreChange = { scoreState.replace(it) },
             tempo = tempo,
             onTempoChange = { v -> scope.launch { prefs.setTempoBpm(v) } },
             isPlaying = isPlaying,
-            currentStep = currentStep,
+            currentTick = currentTick,
             onTogglePlay = {
-                val s = score ?: return@EditorPane
-                if (isPlaying) player.stop() else player.start(s, tempo)
+                val s = midiScore ?: return@MidiEditorPane
+                if (isPlaying) player.stop() else player.start(s, tempoOverrideBpm = tempo)
             },
             status = status,
             onLoadJson = {
@@ -166,7 +168,7 @@ fun ComposerTab(
             },
             onNew = { scoreState.newEmpty(tempo) },
             onSaveAs = {
-                val name = (score?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.mid" }
+                val name = (midiScore?.title?.takeIf { it.isNotBlank() } ?: "score").let { "$it.mid" }
                 saveLauncher.launch(name)
             },
             modifier = paneModifier,
@@ -324,7 +326,7 @@ private fun EditorPane(
 }
 
 @Composable
-private fun DemoMenuButton(onPick: (String) -> Unit) {
+internal fun DemoMenuButton(onPick: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val demos = listOf(
         "ode_to_joy.json" to "Ode to Joy",
@@ -541,9 +543,9 @@ private fun RecordingsPane(
     }
 }
 
-private suspend fun writeScoreToUri(ctx: Context, uri: Uri, score: Score): Boolean = withContext(Dispatchers.IO) {
+private suspend fun writeMidiScoreToUri(ctx: Context, uri: Uri, score: MidiScore): Boolean = withContext(Dispatchers.IO) {
     runCatching {
-        val bytes = SmfWriter.write(score.toMidiScore())
+        val bytes = SmfWriter.write(score)
         ctx.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
         true
     }.getOrElse { false }
