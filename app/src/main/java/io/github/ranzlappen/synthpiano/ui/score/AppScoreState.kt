@@ -3,17 +3,14 @@ package io.github.ranzlappen.synthpiano.ui.score
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
-import io.github.ranzlappen.synthpiano.data.Score
 import io.github.ranzlappen.synthpiano.data.midi.MidiScore
+import io.github.ranzlappen.synthpiano.data.midi.MidiTiming
 import io.github.ranzlappen.synthpiano.data.midi.SmfReader
-import io.github.ranzlappen.synthpiano.data.midi.importLegacyJsonAsMidiScore
-import io.github.ranzlappen.synthpiano.data.midi.toLegacyScore
-import io.github.ranzlappen.synthpiano.data.midi.toMidiScore
+import io.github.ranzlappen.synthpiano.data.midi.TempoEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -22,17 +19,10 @@ import kotlinx.coroutines.withContext
  * App-scoped score state. Held in [io.github.ranzlappen.synthpiano.ui.SynthAppRoot]
  * via `remember`, so the loaded score survives switching tabs.
  *
- * The canonical state is now a [MidiScore] (event-based, full SMF
- * fidelity). The legacy step-based [Score] is exposed as a derived,
- * read-only view (`score`) so the existing step-grid Composer can keep
- * rendering until the piano-roll editor lands. The `OpenDocument`
- * launcher in `ComposerTab` calls `takePersistableUriPermission` so the
- * URI remains readable across process death.
- *
- * Loading dispatches on the file's magic bytes:
- *   - `MThd...`  → parsed by [SmfReader]
- *   - else       → treated as legacy JSON (Python-source format) and
- *                  imported via [importLegacyJsonAsMidiScore]
+ * Canonical state is a [MidiScore] (event-based, full SMF fidelity). The
+ * `OpenDocument` launcher in `ComposerTab` calls
+ * `takePersistableUriPermission` so the URI remains readable across
+ * process death.
  */
 class AppScoreState(
     private val ctx: Context,
@@ -40,21 +30,6 @@ class AppScoreState(
 ) {
     var midiScore: MidiScore? by mutableStateOf(null)
     var status: String? by mutableStateOf(null)
-
-    /**
-     * Step-grid projection for the legacy Composer / ScorePlayer.
-     *
-     * Reads project the canonical [midiScore] through [toLegacyScore].
-     * Writes (used by the legacy step editor while the piano-roll editor
-     * is being built) re-encode the step model back to a [MidiScore] via
-     * [toMidiScore]. Lossy for non-step content, which the legacy editor
-     * cannot author anyway. The setter goes away in Batch 4 once the
-     * piano-roll editor mutates [midiScore] directly.
-     */
-    private val derivedScore = derivedStateOf { midiScore?.toLegacyScore() }
-    var score: Score?
-        get() = derivedScore.value
-        set(value) { midiScore = value?.toMidiScore() }
 
     suspend fun loadFromUri(uri: Uri, persist: Boolean = true) {
         val (loaded, msg) = readMidiScoreFromUri(ctx, uri)
@@ -78,11 +53,17 @@ class AppScoreState(
     }
 
     fun newEmpty(tempoBpm: Int) {
-        midiScore = Score(notes = emptyList(), title = "Untitled", tempoBpm = tempoBpm).toMidiScore()
+        midiScore = MidiScore(
+            ppq = MidiTiming.DEFAULT_PPQ,
+            title = "Untitled",
+            tempoMap = mutableListOf(
+                TempoEvent(0, MidiTiming.bpmToMicrosPerQuarter(tempoBpm)),
+            ),
+        )
         status = "New empty score"
     }
 
-    /** Replace the current score (e.g. after the editor saves a new version). */
+    /** Replace the current score (e.g. after the editor mutates it). */
     fun replace(newScore: MidiScore, newStatus: String? = null) {
         midiScore = newScore
         if (newStatus != null) status = newStatus
@@ -100,8 +81,7 @@ internal suspend fun readMidiScoreFromUri(ctx: Context, uri: Uri): Pair<MidiScor
         runCatching {
             val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: return@runCatching Pair<MidiScore?, String?>(null, "Could not open file")
-            val parsed = parseSmfOrLegacyJson(bytes)
-            Pair<MidiScore?, String?>(parsed, null)
+            Pair<MidiScore?, String?>(SmfReader.read(bytes), null)
         }.getOrElse { t -> Pair<MidiScore?, String?>(null, "Failed: ${t.message}") }
     }
 
@@ -109,24 +89,9 @@ internal suspend fun readMidiScoreFromAsset(ctx: Context, assetPath: String): Pa
     withContext(Dispatchers.IO) {
         runCatching {
             val bytes = ctx.assets.open(assetPath).use { it.readBytes() }
-            val parsed = parseSmfOrLegacyJson(bytes)
-            Pair<MidiScore?, String?>(parsed, null)
+            Pair<MidiScore?, String?>(SmfReader.read(bytes), null)
         }.getOrElse { t -> Pair<MidiScore?, String?>(null, "Failed: ${t.message}") }
     }
-
-/** Dispatch parsing on magic bytes: SMF (`MThd...`) vs legacy JSON. */
-private fun parseSmfOrLegacyJson(bytes: ByteArray): MidiScore {
-    if (looksLikeSmf(bytes)) return SmfReader.read(bytes)
-    val text = bytes.toString(Charsets.UTF_8)
-    return importLegacyJsonAsMidiScore(text)
-}
-
-private fun looksLikeSmf(bytes: ByteArray): Boolean =
-    bytes.size >= 4 &&
-        bytes[0] == 'M'.code.toByte() &&
-        bytes[1] == 'T'.code.toByte() &&
-        bytes[2] == 'h'.code.toByte() &&
-        bytes[3] == 'd'.code.toByte()
 
 internal fun tryTakePersistablePermission(ctx: Context, uri: Uri) {
     runCatching {

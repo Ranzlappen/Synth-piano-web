@@ -27,10 +27,11 @@ A Kotlin/Compose port of [Ranzlappen/synth-piano](https://github.com/Ranzlappen/
 - **Touch keyboard** — multi-touch, configurable octave span, transposition.
 - **Synth voice** — sine / square / saw / triangle oscillator with full ADSR envelope, 16-voice polyphony.
 - **Chord pads** — 11 user-assignable pads supporting maj / min / 7 / dim / sus chord qualities across all 12 roots.
-- **Score system** — play, load (Storage Access Framework), and edit JSON scores. Round-trip-compatible with the Python source's format. 3-5 demos bundled in `assets/scores/`.
+- **Piano-roll score editor** — full Standard MIDI File (`.mid`) editor: tap to add notes, drag to move/resize, long-press to delete. Multi-channel content shown colour-coded; per-note velocity preserved. 4 demos bundled in `assets/scores/` (Ode to Joy, Twinkle Twinkle, Frère Jacques, Scarborough Fair).
+- **Standard MIDI File I/O** — open and save `.mid` via the Storage Access Framework. Reader supports format 0 and 1 (multi-track flattened); writer always emits format 0. Backed by [ktmidi](https://github.com/atsushieno/ktmidi).
 - **USB MIDI input** — plug a controller via OTG, no permission prompt needed.
 - **Hardware keyboard** — Bluetooth/USB QWERTY plays notes (defaults match the Python ASDFG layout, fully remappable in settings).
-- **Recording** — capture the master output to a WAV file in app-specific storage, share via the system sheet.
+- **Recording** — capture the master output to a WAV file plus a sibling `.mid` of the live performance with microsecond timing. Both land in app-specific storage and share via the system sheet.
 - **Material 3** dynamic theming, landscape-locked, responsive on tablets and foldables.
 
 ## Build & Development
@@ -60,8 +61,8 @@ adb shell am start -n io.github.ranzlappen.synthpiano/.MainActivity
 ## Key Conventions
 
 - **Audio thread is sacred.** No allocations, no JNI calls back to Java, no locks in the Oboe `onAudioReady` callback. State changes from Kotlin reach the engine via `std::atomic` + a lock-free SPSC ring of note events.
-- **All DSP lives in `app/src/main/cpp/`.** Kotlin only orchestrates UI, persistence, MIDI, and the recording WAV writer. Synthesis math never round-trips through the JVM.
-- **Score JSON format matches the Python source.** Don't add fields without bumping a `version` field. The parser tolerates the original schema (no `version` = v1).
+- **All DSP lives in `app/src/main/cpp/`.** Kotlin only orchestrates UI, persistence, MIDI, the WAV writer, and the SMF reader/writer. Synthesis math never round-trips through the JVM.
+- **Score format is Standard MIDI File (`.mid`).** Read/written via [ktmidi](https://github.com/atsushieno/ktmidi) wrapped by `data/midi/SmfReader` and `SmfWriter`. The in-memory `MidiScore` keeps tempo map + notes + opaquely-preserved non-note events so unedited round-trip preserves CCs, time signature, etc.
 - **Landscape-only** in the manifest. Compose code may assume `LocalConfiguration.current.screenWidthDp >= 480`.
 - **Package ID is permanent** — `io.github.ranzlappen.synthpiano`. Do not rename without a Play Store migration plan.
 
@@ -116,7 +117,7 @@ Synth-piano-web/
 │   ├── proguard-rules.pro        # R8 keep rules
 │   └── src/main/
 │       ├── AndroidManifest.xml   # App manifest
-│       ├── assets/scores/        # Bundled demo scores (JSON)
+│       ├── assets/scores/        # Bundled demo scores (.mid)
 │       ├── cpp/                  # Native Oboe + DSP engine
 │       │   ├── CMakeLists.txt
 │       │   ├── synth_engine.{h,cpp}

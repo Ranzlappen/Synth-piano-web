@@ -45,7 +45,7 @@
     <string name="score_play">Play score</string>
     <string name="score_pause">Pause score</string>
     <string name="score_stop">Stop</string>
-    <string name="score_load">Load .json</string>
+    <string name="score_load">Load .mid</string>
     <string name="score_load_demo">Load demo</string>
     <string name="score_save">Save</string>
     <string name="score_save_as">Save As…</string>
@@ -55,16 +55,9 @@
     <string name="score_load_failed">Failed to load score: %1$s</string>
     <string name="score_save_failed">Failed to save score: %1$s</string>
     <string name="score_saved">Saved score</string>
-    <string name="score_step">Step %1$d / %2$d</string>
     <string name="score_tempo">Tempo</string>
     <string name="score_title">Title</string>
     <string name="score_notes">Notes</string>
-    <string name="score_beats">Beats</string>
-    <string name="score_add_step">Add step</string>
-    <string name="score_delete_step">Delete step</string>
-    <string name="score_rest">Rest</string>
-    <string name="score_add_note">Add note</string>
-    <string name="score_remove_note">Remove note</string>
     <string name="score_zoom_in">Zoom in</string>
     <string name="score_zoom_out">Zoom out</string>
 

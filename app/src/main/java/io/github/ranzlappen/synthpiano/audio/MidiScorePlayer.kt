@@ -16,8 +16,7 @@ import kotlinx.coroutines.launch
  * Plays a [MidiScore] against [SynthController] with tick-accurate,
  * tempo-aware timing.
  *
- * Compared to the legacy step-based [io.github.ranzlappen.synthpiano.data.ScorePlayer],
- * this player schedules each Note On / Note Off at its absolute tick
+ * Schedules each Note On / Note Off at its absolute tick
  * (converted to wall-clock microseconds via the score's tempo map). It
  * supports overlapping notes, arbitrary durations, multi-channel
  * content, and mid-song tempo changes — all things the step grid can't
