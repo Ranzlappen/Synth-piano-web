@@ -3,8 +3,9 @@ package io.github.ranzlappen.synthpiano.ui.score
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -163,57 +164,142 @@ fun PianoRollEditor(
             val onDeleteSnap = rememberUpdatedState(onDeleteNote)
             val resizeEdgePx = with(density) { 18.dp.toPx() }
 
+            val pinchSlopPx = with(density) { 8.dp.toPx() }
             Canvas(
                 modifier = Modifier
                     .size(totalWidthDp, totalHeightDp)
-                    // Pinch detector runs first and ONLY consumes events
-                    // while two or more pointers are down, so single-finger
-                    // tap / long-press / drag still reach the detectors below.
+                    // 2-finger pinch + pan. Runs on the Initial pass so it
+                    // gets first dibs to claim multi-touch gestures before
+                    // tap / drag detectors at Main pass. Only consumes
+                    // events when pinching is actually active, so single-
+                    // finger gestures pass through untouched.
                     .pointerInput(Unit) {
                         awaitEachGesture {
-                            // Wait for any pointer to go down so we don't busy-loop.
                             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            var pinching = false
-                            var prevSpanX = 0f
-                            var prevSpanY = 0f
+                            var active = false
+                            // Cumulative-from-start (not incremental) ratios
+                            // keep floating-point drift bounded across the
+                            // gesture; re-baseline whenever the pointer pair
+                            // changes (a finger lifts, a different finger
+                            // joins) so the next event isn't computed against
+                            // a stale start span.
+                            var pinchIdA = -1L
+                            var pinchIdB = -1L
+                            var startSpanX = 0f
+                            var startSpanY = 0f
+                            var startZoomX = 0f
+                            var startZoomY = 0f
+                            // Captured in canvas pixels at the previous
+                            // event's canvas frame; rescaled by the zoom
+                            // ratio before computing the pan delta so a
+                            // stationary finger pair pans by zero.
+                            var lastCentroid = Offset.Zero
+
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
+                                // Sort by pointer id so the [0]/[1] indices
+                                // don't swap mid-gesture (which would jitter
+                                // the span calculation).
                                 val pressed = event.changes.filter { it.pressed }
-                                if (pressed.size >= 2) {
-                                    val a = pressed[0].position
-                                    val b = pressed[1].position
-                                    val spanX = abs(a.x - b.x)
-                                    val spanY = abs(a.y - b.y)
-                                    if (!pinching) {
-                                        pinching = true
-                                        prevSpanX = spanX
-                                        prevSpanY = spanY
-                                    } else {
-                                        var nextX = zoomXSnap.value
-                                        var nextY = zoomYSnap.value
-                                        if (prevSpanX > 1f && spanX > 1f) {
-                                            nextX = (nextX * (spanX / prevSpanX))
-                                                .coerceIn(PIANO_ROLL_ZOOM_MIN_X, PIANO_ROLL_ZOOM_MAX_X)
-                                        }
-                                        if (prevSpanY > 1f && spanY > 1f) {
-                                            nextY = (nextY * (spanY / prevSpanY))
-                                                .coerceIn(PIANO_ROLL_ZOOM_MIN_Y, PIANO_ROLL_ZOOM_MAX_Y)
-                                        }
-                                        if (nextX != zoomXSnap.value || nextY != zoomYSnap.value) {
-                                            onZoomSnap.value(nextX, nextY)
-                                        }
-                                        prevSpanX = spanX
-                                        prevSpanY = spanY
-                                        // Only consume while actively pinching
-                                        // so the in-flight drag/tap detectors
-                                        // see the right pointer events between
-                                        // 2-finger episodes.
-                                        event.changes.forEach { it.consume() }
-                                    }
-                                } else if (pinching) {
-                                    pinching = false
+                                    .sortedBy { it.id.value }
+                                if (pressed.size < 2) {
+                                    if (active) active = false
+                                    pinchIdA = -1L
+                                    pinchIdB = -1L
+                                    if (pressed.isEmpty()) break
+                                    continue
                                 }
-                                if (pressed.isEmpty()) break
+
+                                val a = pressed[0].position
+                                val b = pressed[1].position
+                                val spanX = abs(a.x - b.x)
+                                val spanY = abs(a.y - b.y)
+                                val centroid = Offset((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+
+                                val idA = pressed[0].id.value
+                                val idB = pressed[1].id.value
+                                if (idA != pinchIdA || idB != pinchIdB) {
+                                    // Pointer set changed (or first frame) —
+                                    // baseline against current values and
+                                    // require a fresh slop crossing before
+                                    // we start consuming.
+                                    pinchIdA = idA
+                                    pinchIdB = idB
+                                    startSpanX = spanX
+                                    startSpanY = spanY
+                                    startZoomX = zoomXSnap.value
+                                    startZoomY = zoomYSnap.value
+                                    lastCentroid = centroid
+                                    active = false
+                                }
+
+                                if (!active) {
+                                    val movedSpan = max(
+                                        abs(spanX - startSpanX),
+                                        abs(spanY - startSpanY),
+                                    )
+                                    val movedCentroid = (centroid - lastCentroid).getDistance()
+                                    if (movedSpan > pinchSlopPx || movedCentroid > pinchSlopPx) {
+                                        active = true
+                                    }
+                                }
+
+                                if (active) {
+                                    val oldZoomX = zoomXSnap.value
+                                    val oldZoomY = zoomYSnap.value
+
+                                    // Zoom = startZoom × (currentSpan / startSpan).
+                                    var nextX = oldZoomX
+                                    var nextY = oldZoomY
+                                    if (startSpanX > pinchSlopPx) {
+                                        nextX = (startZoomX * (spanX / startSpanX))
+                                            .coerceIn(PIANO_ROLL_ZOOM_MIN_X, PIANO_ROLL_ZOOM_MAX_X)
+                                    }
+                                    if (startSpanY > pinchSlopPx) {
+                                        nextY = (startZoomY * (spanY / startSpanY))
+                                            .coerceIn(PIANO_ROLL_ZOOM_MIN_Y, PIANO_ROLL_ZOOM_MAX_Y)
+                                    }
+
+                                    val ratioX = if (oldZoomX > 0f) nextX / oldZoomX else 1f
+                                    val ratioY = if (oldZoomY > 0f) nextY / oldZoomY else 1f
+
+                                    if (nextX != oldZoomX || nextY != oldZoomY) {
+                                        onZoomSnap.value(nextX, nextY)
+                                        // Focal-point preservation: keep the
+                                        // canvas point under the centroid at
+                                        // the same screen coordinate after
+                                        // zoom. delta = focal × (ratio − 1).
+                                        if (ratioX != 1f) {
+                                            hScroll.dispatchRawDelta(centroid.x * (ratioX - 1f))
+                                        }
+                                        if (ratioY != 1f) {
+                                            vScroll.dispatchRawDelta(centroid.y * (ratioY - 1f))
+                                        }
+                                    }
+
+                                    // 2-finger pan. The previous centroid was
+                                    // captured in the OLD canvas frame; bring
+                                    // it into the NEW frame before computing
+                                    // the delta so a stationary finger pair
+                                    // produces zero pan even when zoom
+                                    // changed in this same event.
+                                    val lastInNewFrame = Offset(
+                                        lastCentroid.x * ratioX,
+                                        lastCentroid.y * ratioY,
+                                    )
+                                    val pan = centroid - lastInNewFrame
+                                    if (pan.x != 0f) hScroll.dispatchRawDelta(-pan.x)
+                                    if (pan.y != 0f) vScroll.dispatchRawDelta(-pan.y)
+
+                                    // Cancel any in-flight single-finger drag
+                                    // so a note doesn't keep tracking finger
+                                    // 0 while the user is pinching.
+                                    if (dragState.value != null) dragState.value = null
+
+                                    event.changes.forEach { it.consume() }
+                                }
+
+                                lastCentroid = centroid
                             }
                         }
                     }
@@ -265,69 +351,83 @@ fun PianoRollEditor(
                             },
                         )
                     }
+                    // Single-finger drag on a NOTE moves / resizes it. Drags
+                    // started on empty grid are deliberately NOT claimed —
+                    // the pointer event then bubbles up to the parent
+                    // horizontal/vertical scroll, which is what the user
+                    // expects when swiping the empty canvas.
                     .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragStart = { offset ->
-                                val s = scoreSnap.value
-                                val hit = hitTestNote(
-                                    offset = offset,
-                                    notes = s.notes,
-                                    ppq = s.ppq,
-                                    pxPerBeat = pxPerBeatF,
-                                    pxPerSemitone = pxPerSemitoneF,
-                                    maxPitch = maxPitch,
-                                )
-                                if (hit != null) {
-                                    val n = s.notes[hit]
-                                    val noteX = n.startTicks.toFloat() / s.ppq * pxPerBeatF
-                                    val noteW = (n.durationTicks.toFloat() / s.ppq * pxPerBeatF).coerceAtLeast(2f)
-                                    val onRightEdge = offset.x >= noteX + noteW - resizeEdgePx
-                                    dragState.value = DragState(
-                                        index = hit,
-                                        mode = if (onRightEdge) DragMode.Resize else DragMode.Move,
-                                        original = n,
-                                    )
-                                    onSelectSnap.value(hit)
-                                }
-                            },
-                            onDrag = { change, _ ->
-                                val state = dragState.value ?: return@detectDragGestures
-                                val s = scoreSnap.value
-                                val n = state.original
-                                val snap = (s.ppq / 16).coerceAtLeast(1)
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = true)
+                            val s = scoreSnap.value
+                            val hit = hitTestNote(
+                                offset = down.position,
+                                notes = s.notes,
+                                ppq = s.ppq,
+                                pxPerBeat = pxPerBeatF,
+                                pxPerSemitone = pxPerSemitoneF,
+                                maxPitch = maxPitch,
+                            ) ?: return@awaitEachGesture
+
+                            val n = s.notes[hit]
+                            val noteX = n.startTicks.toFloat() / s.ppq * pxPerBeatF
+                            val noteW = (n.durationTicks.toFloat() / s.ppq * pxPerBeatF).coerceAtLeast(2f)
+                            val onRightEdge = down.position.x >= noteX + noteW - resizeEdgePx
+                            val mode = if (onRightEdge) DragMode.Resize else DragMode.Move
+
+                            // Wait for touch slop. If user releases or
+                            // gesture is cancelled by the pinch handler
+                            // before slop, bail without claiming.
+                            val slop = awaitTouchSlopOrCancellation(down.id) { change, _ ->
+                                change.consume()
+                            } ?: return@awaitEachGesture
+
+                            dragState.value = DragState(index = hit, mode = mode, original = n)
+                            onSelectSnap.value(hit)
+
+                            // `drag()` returns true when the pointer is
+                            // released and false when the gesture is cancelled
+                            // (e.g. the pinch handler consumed the event).
+                            // Either way we clear the drag state when it
+                            // finishes, so we ignore the return value.
+                            drag(slop.id) { change ->
+                                val state = dragState.value ?: return@drag
+                                val curScore = scoreSnap.value
+                                val original = state.original
+                                val snapTicks = (curScore.ppq / 16).coerceAtLeast(1)
                                 when (state.mode) {
                                     DragMode.Move -> {
                                         val (newMidi, newTick) = pixelToMusic(
                                             offset = change.position,
-                                            ppq = s.ppq,
+                                            ppq = curScore.ppq,
                                             pxPerBeat = pxPerBeatF,
                                             pxPerSemitone = pxPerSemitoneF,
                                             maxPitch = maxPitch,
                                             minPitch = minPitch,
                                         )
-                                        val snapped = (newTick / snap) * snap
+                                        val snapped = (newTick / snapTicks) * snapTicks
                                         onUpdateSnap.value(
                                             state.index,
-                                            n.copy(
+                                            original.copy(
                                                 midi = newMidi.coerceIn(minPitch, maxPitch),
                                                 startTicks = snapped.coerceAtLeast(0),
                                             ),
                                         )
                                     }
                                     DragMode.Resize -> {
-                                        val newEndTick = ((change.position.x / pxPerBeatF) * s.ppq).toInt()
-                                        val rawDur = newEndTick - n.startTicks
-                                        val snappedDur = ((rawDur + snap / 2) / snap) * snap
+                                        val newEndTick = ((change.position.x / pxPerBeatF) * curScore.ppq).toInt()
+                                        val rawDur = newEndTick - original.startTicks
+                                        val snappedDur = ((rawDur + snapTicks / 2) / snapTicks) * snapTicks
                                         onUpdateSnap.value(
                                             state.index,
-                                            n.copy(durationTicks = snappedDur.coerceAtLeast(snap)),
+                                            original.copy(durationTicks = snappedDur.coerceAtLeast(snapTicks)),
                                         )
                                     }
                                 }
-                            },
-                            onDragEnd = { dragState.value = null },
-                            onDragCancel = { dragState.value = null },
-                        )
+                                change.consume()
+                            }
+                            dragState.value = null
+                        }
                     },
             ) {
                 drawGrid(
