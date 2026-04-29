@@ -209,6 +209,18 @@ fun PianoRollEditor(
                             // geometry; only the matching axis's zoom
                             // updates while the gesture is active.
                             var axis = PinchAxis.Both
+                            // Sub-pixel accumulators for scroll deltas.
+                            // ScrollState rounds its value to Int on every
+                            // dispatch, so per-event focal-point and pan
+                            // deltas smaller than 1 px would round to zero
+                            // and the focal point would drift toward y=0
+                            // (i.e., the canvas's natural top anchor) over
+                            // the course of a slow zoom. Accumulate the
+                            // float deltas here and dispatch only the
+                            // integer part; carry the fractional + clamped
+                            // remainder to the next event.
+                            var pendingHScroll = 0f
+                            var pendingVScroll = 0f
                             // Captured in canvas pixels at the previous
                             // event's canvas frame; rescaled by the zoom
                             // ratio before computing the pan delta so a
@@ -250,6 +262,8 @@ fun PianoRollEditor(
                                     startZoomX = zoomXSnap.value
                                     startZoomY = zoomYSnap.value
                                     lastCentroid = centroid
+                                    pendingHScroll = 0f
+                                    pendingVScroll = 0f
                                     active = false
                                     // Lock to whichever axis the finger pair
                                     // is more spread along; diagonal pairs
@@ -299,31 +313,37 @@ fun PianoRollEditor(
 
                                     if (nextX != oldZoomX || nextY != oldZoomY) {
                                         onZoomSnap.value(nextX, nextY)
-                                        // Focal-point preservation: keep the
-                                        // canvas point under the centroid at
-                                        // the same screen coordinate after
-                                        // zoom. delta = focal × (ratio − 1).
-                                        if (ratioX != 1f) {
-                                            hScroll.dispatchRawDelta(centroid.x * (ratioX - 1f))
-                                        }
-                                        if (ratioY != 1f) {
-                                            vScroll.dispatchRawDelta(centroid.y * (ratioY - 1f))
-                                        }
                                     }
 
-                                    // 2-finger pan. The previous centroid was
-                                    // captured in the OLD canvas frame; bring
-                                    // it into the NEW frame before computing
-                                    // the delta so a stationary finger pair
-                                    // produces zero pan even when zoom
-                                    // changed in this same event.
+                                    // Focal-point preservation: keep the
+                                    // canvas point under the centroid at
+                                    // the same screen coordinate after
+                                    // zoom. delta = focal × (ratio − 1).
+                                    // 2-finger pan: scroll opposite to the
+                                    // centroid's screen-space movement.
+                                    // Both deltas accumulate into the
+                                    // pending* floats; the integer part is
+                                    // dispatched and the residual carries
+                                    // over so a slow zoom doesn't lose the
+                                    // sub-pixel scroll on every event.
                                     val lastInNewFrame = Offset(
                                         lastCentroid.x * ratioX,
                                         lastCentroid.y * ratioY,
                                     )
                                     val pan = centroid - lastInNewFrame
-                                    if (pan.x != 0f) hScroll.dispatchRawDelta(-pan.x)
-                                    if (pan.y != 0f) vScroll.dispatchRawDelta(-pan.y)
+                                    pendingHScroll += centroid.x * (ratioX - 1f) - pan.x
+                                    pendingVScroll += centroid.y * (ratioY - 1f) - pan.y
+
+                                    val wholeH = pendingHScroll.toInt()
+                                    if (wholeH != 0) {
+                                        val consumed = hScroll.dispatchRawDelta(wholeH.toFloat())
+                                        pendingHScroll -= consumed
+                                    }
+                                    val wholeV = pendingVScroll.toInt()
+                                    if (wholeV != 0) {
+                                        val consumed = vScroll.dispatchRawDelta(wholeV.toFloat())
+                                        pendingVScroll -= consumed
+                                    }
 
                                     // Cancel any in-flight single-finger drag
                                     // so a note doesn't keep tracking finger
