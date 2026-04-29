@@ -62,6 +62,22 @@ const val PIANO_ROLL_ZOOM_MAX_X = 8f
 const val PIANO_ROLL_ZOOM_MIN_Y = 0.5f
 const val PIANO_ROLL_ZOOM_MAX_Y = 4f
 
+/**
+ * Axis the active pinch is locked to, decided once at slop crossing from
+ * the finger pair's geometry. Locking the axis keeps natural off-axis
+ * finger jitter from leaking into the other zoom factor — a horizontal
+ * pinch only ever drives [zoomX], a vertical pinch only ever [zoomY].
+ */
+private enum class PinchAxis { Horizontal, Vertical, Both }
+
+/**
+ * How much more "spread out" the finger pair has to be along one axis
+ * than the other before we lock the pinch to that axis. With 1.5, a
+ * pinch within ±~34° of horizontal or vertical locks; pinches in the
+ * diagonal band [≈34°, ≈56°] drive both axes.
+ */
+private const val PINCH_AXIS_LOCK_RATIO = 1.5f
+
 private val CHANNEL_COLORS = listOf(
     Color(0xFF1976D2), // 0  blue
     Color(0xFFD32F2F), // 1  red
@@ -189,6 +205,10 @@ fun PianoRollEditor(
                             var startSpanY = 0f
                             var startZoomX = 0f
                             var startZoomY = 0f
+                            // Decided at re-baseline from the finger pair
+                            // geometry; only the matching axis's zoom
+                            // updates while the gesture is active.
+                            var axis = PinchAxis.Both
                             // Captured in canvas pixels at the previous
                             // event's canvas frame; rescaled by the zoom
                             // ratio before computing the pan delta so a
@@ -231,6 +251,17 @@ fun PianoRollEditor(
                                     startZoomY = zoomYSnap.value
                                     lastCentroid = centroid
                                     active = false
+                                    // Lock to whichever axis the finger pair
+                                    // is more spread along; diagonal pairs
+                                    // (within the ratio band on both sides)
+                                    // drive both axes.
+                                    val dx = abs(b.x - a.x)
+                                    val dy = abs(b.y - a.y)
+                                    axis = when {
+                                        dx > dy * PINCH_AXIS_LOCK_RATIO -> PinchAxis.Horizontal
+                                        dy > dx * PINCH_AXIS_LOCK_RATIO -> PinchAxis.Vertical
+                                        else -> PinchAxis.Both
+                                    }
                                 }
 
                                 if (!active) {
@@ -248,14 +279,17 @@ fun PianoRollEditor(
                                     val oldZoomX = zoomXSnap.value
                                     val oldZoomY = zoomYSnap.value
 
-                                    // Zoom = startZoom × (currentSpan / startSpan).
+                                    // Zoom = startZoom × (currentSpan / startSpan),
+                                    // gated by the locked axis so an
+                                    // X-only pinch can never drift Y (and
+                                    // vice versa).
                                     var nextX = oldZoomX
                                     var nextY = oldZoomY
-                                    if (startSpanX > pinchSlopPx) {
+                                    if (axis != PinchAxis.Vertical && startSpanX > pinchSlopPx) {
                                         nextX = (startZoomX * (spanX / startSpanX))
                                             .coerceIn(PIANO_ROLL_ZOOM_MIN_X, PIANO_ROLL_ZOOM_MAX_X)
                                     }
-                                    if (startSpanY > pinchSlopPx) {
+                                    if (axis != PinchAxis.Horizontal && startSpanY > pinchSlopPx) {
                                         nextY = (startZoomY * (spanY / startSpanY))
                                             .coerceIn(PIANO_ROLL_ZOOM_MIN_Y, PIANO_ROLL_ZOOM_MAX_Y)
                                     }
