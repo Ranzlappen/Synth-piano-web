@@ -1,6 +1,7 @@
 package io.github.ranzlappen.synthpiano.ui.score
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,9 @@ fun PianoRollEditor(
     score: MidiScore,
     modifier: Modifier = Modifier,
     currentTick: Int = -1,
+    selectedIndex: Int? = null,
+    onSelectNote: (Int?) -> Unit = {},
+    onAddNote: (midi: Int, startTicks: Int) -> Unit = { _, _ -> },
     pxPerBeat: Dp = 80.dp,
     pxPerSemitone: Dp = 12.dp,
     keyboardWidth: Dp = 56.dp,
@@ -115,7 +120,41 @@ fun PianoRollEditor(
                 .verticalScroll(vScroll),
         ) {
             Canvas(
-                modifier = Modifier.size(totalWidthDp, totalHeightDp),
+                modifier = Modifier
+                    .size(totalWidthDp, totalHeightDp)
+                    .pointerInput(score.notes, score.ppq) {
+                        detectTapGestures(
+                            onTap = { offset ->
+                                val hit = hitTestNote(
+                                    offset = offset,
+                                    notes = score.notes,
+                                    ppq = score.ppq,
+                                    pxPerBeat = pxPerBeatF,
+                                    pxPerSemitone = pxPerSemitoneF,
+                                    maxPitch = maxPitch,
+                                )
+                                if (hit != null) {
+                                    onSelectNote(hit)
+                                } else {
+                                    val (midi, tick) = pixelToMusic(
+                                        offset = offset,
+                                        ppq = score.ppq,
+                                        pxPerBeat = pxPerBeatF,
+                                        pxPerSemitone = pxPerSemitoneF,
+                                        maxPitch = maxPitch,
+                                        minPitch = minPitch,
+                                    )
+                                    if (midi in minPitch..maxPitch) {
+                                        // Snap tick to 1/16 of a beat
+                                        val snap = (score.ppq / 16).coerceAtLeast(1)
+                                        val snappedTick = (tick / snap) * snap
+                                        onAddNote(midi, snappedTick.coerceAtLeast(0))
+                                    }
+                                    onSelectNote(null)
+                                }
+                            },
+                        )
+                    },
             ) {
                 drawGrid(
                     minPitch = minPitch,
@@ -125,7 +164,7 @@ fun PianoRollEditor(
                     totalBeats = totalBeats.coerceAtLeast(8f),
                     canvasSize = size,
                 )
-                for (n in score.notes) {
+                for ((idx, n) in score.notes.withIndex()) {
                     drawNote(
                         note = n,
                         ppq = score.ppq,
@@ -133,6 +172,7 @@ fun PianoRollEditor(
                         pxPerSemitone = pxPerSemitoneF,
                         minPitch = minPitch,
                         maxPitch = maxPitch,
+                        selected = (idx == selectedIndex),
                     )
                 }
                 if (currentTick >= 0) {
@@ -238,6 +278,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNote(
     pxPerSemitone: Float,
     minPitch: Int,
     maxPitch: Int,
+    selected: Boolean = false,
 ) {
     if (note.midi < minPitch || note.midi > maxPitch) return
     val x = note.startTicks.toFloat() / ppq * pxPerBeat
@@ -253,9 +294,50 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNote(
         size = Size(w, h),
     )
     drawRect(
-        color = Color(0x88000000),
+        color = if (selected) Color(0xFFFFEB3B) else Color(0x88000000),
         topLeft = Offset(x, y),
         size = Size(w, h),
-        style = Stroke(width = 0.8f),
+        style = Stroke(width = if (selected) 2.5f else 0.8f),
     )
+}
+
+/**
+ * Convert a pointer offset (in canvas pixels) to (midi, tick) coordinates.
+ * Returns the closest pitch / tick at the tap location.
+ */
+private fun pixelToMusic(
+    offset: Offset,
+    ppq: Int,
+    pxPerBeat: Float,
+    pxPerSemitone: Float,
+    maxPitch: Int,
+    minPitch: Int,
+): Pair<Int, Int> {
+    val midi = (maxPitch - (offset.y / pxPerSemitone).toInt()).coerceIn(minPitch, maxPitch)
+    val tick = ((offset.x / pxPerBeat) * ppq).toInt().coerceAtLeast(0)
+    return midi to tick
+}
+
+/**
+ * Returns the index of the topmost note containing [offset], or null. Iterates
+ * from the end of the list so notes drawn last (visually on top) win when
+ * overlapping.
+ */
+private fun hitTestNote(
+    offset: Offset,
+    notes: List<Note>,
+    ppq: Int,
+    pxPerBeat: Float,
+    pxPerSemitone: Float,
+    maxPitch: Int,
+): Int? {
+    for (i in notes.indices.reversed()) {
+        val n = notes[i]
+        val x = n.startTicks.toFloat() / ppq * pxPerBeat
+        val y = (maxPitch - n.midi) * pxPerSemitone
+        val w = (n.durationTicks.toFloat() / ppq * pxPerBeat).coerceAtLeast(2f)
+        val h = pxPerSemitone
+        if (offset.x in x..(x + w) && offset.y in y..(y + h)) return i
+    }
+    return null
 }
