@@ -36,7 +36,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,8 +49,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.github.ranzlappen.synthpiano.BuildConfig
 import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.audio.SynthController
@@ -77,9 +74,8 @@ fun SetupTab(
     layouts: LayoutRepository,
     midi: MidiManager,
     hwKeys: HwKeyboardMapper,
+    onEditLayout: () -> Unit,
     modifier: Modifier = Modifier,
-    autoOpenEditor: Boolean = false,
-    onAutoOpenConsumed: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val devices by midi.connectedDeviceNames.collectAsState()
@@ -90,16 +86,8 @@ fun SetupTab(
     val userLayouts by layouts.userLayouts.collectAsState(initial = emptyList())
     val currentLanguageTag by prefs.languageTag.collectAsState(initial = null)
     val activity = LocalContext.current as? Activity
-    var editingLayout by remember { mutableStateOf(false) }
     var saveAsCurrent by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(autoOpenEditor) {
-        if (autoOpenEditor) {
-            editingLayout = true
-            onAutoOpenConsumed()
-        }
-    }
 
     Column(
         modifier = modifier
@@ -151,7 +139,7 @@ fun SetupTab(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedButton(onClick = { editingLayout = true }) {
+                OutlinedButton(onClick = onEditLayout) {
                     Text(stringResource(R.string.settings_layout_edit))
                 }
                 OutlinedButton(onClick = { saveAsCurrent = true }) {
@@ -288,34 +276,6 @@ fun SetupTab(
             InfoRow(stringResource(R.string.about_source_attribution))
             InfoRow(stringResource(R.string.about_engine))
             InfoRow(stringResource(R.string.about_license))
-        }
-    }
-
-    if (editingLayout) {
-        Dialog(
-            onDismissRequest = { editingLayout = false },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = false,
-            ),
-        ) {
-            KeyboardLayoutEditor(
-                initial = keyboardLayout,
-                onCancel = { editingLayout = false },
-                onSave = { layout ->
-                    scope.launch { prefs.setKeyboardLayout(layout) }
-                    editingLayout = false
-                },
-                onSaveAs = { layout ->
-                    scope.launch {
-                        layouts.saveUser(layout)
-                        layouts.apply(layout)
-                    }
-                    editingLayout = false
-                },
-                existingNames = userLayouts.map { it.name }.toSet(),
-            )
         }
     }
 
