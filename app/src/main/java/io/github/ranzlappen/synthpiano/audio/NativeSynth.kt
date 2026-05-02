@@ -11,6 +11,11 @@ package io.github.ranzlappen.synthpiano.audio
  */
 class NativeSynth {
 
+    companion object {
+        /** Mirrors [kMaxVoices] in `synth_engine.h`. */
+        const val MAX_VOICES = 16
+    }
+
     private var handle: Long = 0L
 
     init {
@@ -60,6 +65,23 @@ class NativeSynth {
     fun setPolyCompensation(v: Float) =
         nativeSetPolyCompensation(handle, v.coerceIn(0f, 1f))
 
+    /**
+     * Pre-limiter input gain. 1.0 = neutral, <1 = cleaner peaks, >1 = warmer
+     * tanh saturation. Range chosen to keep the output limiter graceful.
+     */
+    fun setHeadroom(v: Float) =
+        nativeSetHeadroom(handle, v.coerceIn(0.5f, 1.5f))
+
+    /**
+     * Active-voice cap. Voice indices >= [n] are never allocated, so reducing
+     * polyphony immediately bounds CPU and reduces stacking-induced clipping.
+     */
+    fun setMaxPolyphony(n: Int) =
+        nativeSetMaxPolyphony(handle, n.coerceIn(1, MAX_VOICES))
+
+    /** Diagnostic: total NoteEvents dropped because the SPSC ring was full. */
+    fun eventDropCount(): Int = nativeGetEventDropCount(handle)
+
     fun sampleRate(): Int = nativeGetSampleRate(handle)
 
     /** Returns peak magnitude since last call, in [0, 1]. */
@@ -108,6 +130,9 @@ class NativeSynth {
     private external fun nativeSetVelocitySensitivity(handle: Long, v: Float)
     private external fun nativeSetGlideSec(handle: Long, s: Float)
     private external fun nativeSetPolyCompensation(handle: Long, v: Float)
+    private external fun nativeSetHeadroom(handle: Long, v: Float)
+    private external fun nativeSetMaxPolyphony(handle: Long, n: Int)
+    private external fun nativeGetEventDropCount(handle: Long): Int
 
     private external fun nativeGetSampleRate(handle: Long): Int
     private external fun nativeGetMasterPeak(handle: Long): Float

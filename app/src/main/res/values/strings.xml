@@ -177,6 +177,11 @@
     <string name="sound_preset_name_label">Name</string>
     <string name="sound_filter_title">Filter</string>
     <string name="sound_voice_title">Voice</string>
+    <string name="sound_velocity">Velocity</string>
+    <string name="sound_glide">Glide</string>
+    <string name="sound_poly_comp">Poly Comp</string>
+    <string name="sound_headroom">Headroom</string>
+    <string name="sound_max_polyphony">Max voices</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Bind new key</string>

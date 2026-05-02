@@ -91,6 +91,8 @@ fun SoundTab(
     val filter by synth.filter.collectAsState()
     val voice by synth.voiceShaping.collectAsState()
     val polyComp by synth.polyComp.collectAsState()
+    val headroom by synth.headroom.collectAsState()
+    val maxPolyphony by synth.maxPolyphony.collectAsState()
     val userPresets by presets.userPresets.collectAsState(initial = emptyList())
     val selectedPresetName by prefs.lastPresetName.collectAsState(initial = null)
 
@@ -150,11 +152,15 @@ fun SoundTab(
                 VoiceShapingCard(
                     voice = voice,
                     polyComp = polyComp,
+                    headroom = headroom,
+                    maxPolyphony = maxPolyphony,
                     onVoice = { v ->
                         synth.setVelocitySensitivity(v.velocitySensitivity)
                         synth.setGlideSec(v.glideSec)
                     },
                     onPolyComp = synth::setPolyCompensation,
+                    onHeadroom = synth::setHeadroom,
+                    onMaxPolyphony = synth::setMaxPolyphony,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -183,11 +189,15 @@ fun SoundTab(
             VoiceShapingCard(
                 voice = voice,
                 polyComp = polyComp,
+                headroom = headroom,
+                maxPolyphony = maxPolyphony,
                 onVoice = { v ->
                     synth.setVelocitySensitivity(v.velocitySensitivity)
                     synth.setGlideSec(v.glideSec)
                 },
                 onPolyComp = synth::setPolyCompensation,
+                onHeadroom = synth::setHeadroom,
+                onMaxPolyphony = synth::setMaxPolyphony,
                 modifier = Modifier.fillMaxWidth().wrapContentHeight(),
             )
         }
@@ -738,35 +748,104 @@ private fun FilterCard(
 private fun VoiceShapingCard(
     voice: VoiceShaping,
     polyComp: Float,
+    headroom: Float,
+    maxPolyphony: Int,
     onVoice: (VoiceShaping) -> Unit,
     onPolyComp: (Float) -> Unit,
+    onHeadroom: (Float) -> Unit,
+    onMaxPolyphony: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.sound_voice_title), style = MaterialTheme.typography.titleMedium)
             EnvelopeSlider(
-                label = "Velocity",
+                label = stringResource(R.string.sound_velocity),
                 value = voice.velocitySensitivity,
                 range = 0f..1f,
                 isSeconds = false,
                 onChange = { onVoice(voice.copy(velocitySensitivity = it)) },
             )
             EnvelopeSlider(
-                label = "Glide",
+                label = stringResource(R.string.sound_glide),
                 value = voice.glideSec,
                 range = 0f..0.5f,
                 isSeconds = true,
                 onChange = { onVoice(voice.copy(glideSec = it)) },
             )
             EnvelopeSlider(
-                label = "Poly Comp",
+                label = stringResource(R.string.sound_poly_comp),
                 value = polyComp,
                 range = 0f..1f,
                 isSeconds = false,
                 onChange = onPolyComp,
                 valueFormatter = { v -> "%d%%".format((v * 100f).toInt()) },
             )
+            EnvelopeSlider(
+                label = stringResource(R.string.sound_headroom),
+                value = headroom,
+                range = 0.5f..1.5f,
+                isSeconds = false,
+                onChange = onHeadroom,
+                valueFormatter = { v -> "%.2f×".format(v) },
+            )
+            PolyphonyStepper(
+                value = maxPolyphony,
+                onChange = onMaxPolyphony,
+            )
+        }
+    }
+}
+
+/**
+ * Stepper for the active-voice cap. Discrete options keep the user from
+ * landing on awkward values; the cap maps directly to CPU headroom and
+ * the maximum number of voices that can stack into the limiter.
+ */
+@Composable
+private fun PolyphonyStepper(
+    value: Int,
+    onChange: (Int) -> Unit,
+) {
+    val options = listOf(4, 8, 12, 16)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.sound_max_polyphony),
+            modifier = Modifier.width(72.dp),
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            options.forEach { n ->
+                val selected = value == n
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        .clickable { onChange(n) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = n.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
+            }
         }
     }
 }

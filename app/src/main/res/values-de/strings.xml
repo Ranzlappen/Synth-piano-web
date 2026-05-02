@@ -177,6 +177,11 @@
     <string name="sound_preset_name_label">Name</string>
     <string name="sound_filter_title">Filter</string>
     <string name="sound_voice_title">Stimme</string>
+    <string name="sound_velocity">Anschlag</string>
+    <string name="sound_glide">Glide</string>
+    <string name="sound_poly_comp">Poly-Ausgl.</string>
+    <string name="sound_headroom">Headroom</string>
+    <string name="sound_max_polyphony">Max. Stimmen</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Neue Taste binden</string>
