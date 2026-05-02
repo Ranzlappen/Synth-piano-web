@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -105,7 +106,10 @@ fun KeyboardLayoutEditor(
             builtin = builtin,
         )
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Surface(
+        modifier = Modifier.fillMaxSize().safeDrawingPadding(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
         Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
             EditorTopBar(
                 onCancel = onCancel,
@@ -180,6 +184,7 @@ fun KeyboardLayoutEditor(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EditorTopBar(
     onCancel: () -> Unit,
@@ -190,40 +195,51 @@ private fun EditorTopBar(
     onSaveAs: (() -> Unit)?,
     canSave: Boolean,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        TextButton(onClick = onCancel) { Text("Cancel") }
-        Text(
-            "Edit Layout",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onReset) {
-            Icon(Icons.Filled.Refresh, contentDescription = null)
-            Spacer(Modifier.width(4.dp))
-            Text("Reset")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            TextButton(onClick = onCancel) { Text("Cancel") }
+            Text(
+                "Edit Layout",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
         }
-        TextButton(onClick = onAddKeyboard) {
-            Icon(Icons.Filled.Piano, contentDescription = null)
-            Spacer(Modifier.width(4.dp))
-            Text("+ Keys")
-        }
-        TextButton(onClick = onAddModifier) {
-            Icon(Icons.Filled.Tune, contentDescription = null)
-            Spacer(Modifier.width(4.dp))
-            Text("+ Mods")
-        }
-        if (onSaveAs != null) {
-            TextButton(onClick = onSaveAs, enabled = canSave) {
-                Icon(Icons.Filled.Save, contentDescription = null)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            TextButton(onClick = onReset) {
+                Icon(Icons.Filled.Refresh, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("Save as…")
+                Text("Reset")
             }
+            TextButton(onClick = onAddKeyboard) {
+                Icon(Icons.Filled.Piano, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("+ Keys")
+            }
+            TextButton(onClick = onAddModifier) {
+                Icon(Icons.Filled.Tune, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("+ Mods")
+            }
+            if (onSaveAs != null) {
+                TextButton(onClick = onSaveAs, enabled = canSave) {
+                    Icon(Icons.Filled.Save, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Save as…")
+                }
+            }
+            Button(onClick = onSave, enabled = canSave) { Text("Save") }
         }
-        Button(onClick = onSave, enabled = canSave) { Text("Save") }
     }
 }
 

@@ -27,6 +27,7 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale"
             android:screenOrientation="sensorLandscape"
             android:resizeableActivity="true"
+            android:windowLayoutInDisplayCutoutMode="shortEdges"
             android:theme="@style/Theme.SynthPiano">
 
             <intent-filter>
