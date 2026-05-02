@@ -170,6 +170,28 @@
     <!-- MIDI bottom sheet -->
     <string name="midi_devices_title">MIDI Devices</string>
 
+    <!-- Sound tab presets -->
+    <string name="sound_save_current_as">Save current as…</string>
+    <string name="sound_save_preset_title">Save preset</string>
+    <string name="sound_rename_preset_title">Rename preset</string>
+    <string name="sound_preset_name_label">Name</string>
+    <string name="sound_filter_title">Filter</string>
+    <string name="sound_voice_title">Voice</string>
+
+    <!-- Hardware keymap editor -->
+    <string name="keymap_bind_new">+ Bind new key</string>
+    <string name="keymap_bind_dialog_title">Bind new key</string>
+    <string name="keymap_offset_help">Enter a MIDI offset relative to C4 (e.g. 0 = C4, 7 = G4):</string>
+    <string name="keymap_offset_label">Offset</string>
+    <string name="keymap_capture">Capture key</string>
+
+    <!-- Composer / MIDI editor -->
+    <string name="midi_editor_beat">Beat %1$s</string>
+    <string name="midi_editor_delete_note">Delete selected note</string>
+    <string name="midi_editor_zoom_in">Zoom in</string>
+    <string name="midi_editor_zoom_out">Zoom out</string>
+    <string name="midi_editor_reset_zoom">Reset zoom</string>
+
     <!-- Export feedback -->
     <string name="recording_exported">Saved %1$d file(s) to Download/Synth Piano</string>
     <string name="recording_export_failed">Export failed</string>

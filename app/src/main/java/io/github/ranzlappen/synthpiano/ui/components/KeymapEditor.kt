@@ -101,7 +101,9 @@ fun KeymapEditor(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Button(onClick = { addingOffset = true }) { Text("+ Bind new key") }
+            Button(onClick = { addingOffset = true }) {
+                Text(stringResource(R.string.keymap_bind_new))
+            }
             Spacer(Modifier.weight(1f))
             TextButton(onClick = {
                 mapper.resetToDefaults()
@@ -116,15 +118,18 @@ fun KeymapEditor(
     if (addingOffset) {
         AlertDialog(
             onDismissRequest = { addingOffset = false; addOffsetText = "" },
-            title = { Text("Bind new key") },
+            title = { Text(stringResource(R.string.keymap_bind_dialog_title)) },
             text = {
                 Column {
-                    Text("Enter a MIDI offset relative to C4 (e.g. 0 = C4, 7 = G4):", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        stringResource(R.string.keymap_offset_help),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
                     Spacer(Modifier.padding(4.dp))
                     OutlinedTextField(
                         value = addOffsetText,
                         onValueChange = { addOffsetText = it.filter { c -> c.isDigit() || c == '-' } },
-                        label = { Text("Offset") },
+                        label = { Text(stringResource(R.string.keymap_offset_label)) },
                         singleLine = true,
                     )
                 }
@@ -137,7 +142,7 @@ fun KeymapEditor(
                     }
                     addingOffset = false
                     addOffsetText = ""
-                }) { Text("Capture key") }
+                }) { Text(stringResource(R.string.keymap_capture)) }
             },
             dismissButton = {
                 TextButton(onClick = { addingOffset = false; addOffsetText = "" }) {
