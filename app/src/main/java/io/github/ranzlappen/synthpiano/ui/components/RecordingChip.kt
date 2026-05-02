@@ -30,7 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.github.ranzlappen.synthpiano.R
 
 /**
  * REC pill: tap to start/stop recording; while recording, a soft pulsing
@@ -88,19 +90,23 @@ fun RecordingChip(
                 Spacer(Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.Filled.Stop,
-                    contentDescription = "Stop recording",
+                    contentDescription = stringResource(R.string.record_stop),
                     tint = onContainer,
                     modifier = Modifier.size(16.dp),
                 )
             } else {
                 Icon(
                     imageVector = Icons.Filled.FiberManualRecord,
-                    contentDescription = "Start recording",
+                    contentDescription = stringResource(R.string.record_start),
                     tint = Color(0xFFFF5A5A),
                     modifier = Modifier.size(14.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("REC", style = MaterialTheme.typography.labelMedium, color = onContainer)
+                Text(
+                    stringResource(R.string.recording_now),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = onContainer,
+                )
             }
         }
         if (!isRecording && onShareLast != null) {
@@ -112,7 +118,7 @@ fun RecordingChip(
             ) {
                 Icon(
                     imageVector = Icons.Filled.IosShare,
-                    contentDescription = "Share last recording",
+                    contentDescription = stringResource(R.string.record_share),
                     tint = onContainer,
                     modifier = Modifier.size(16.dp),
                 )

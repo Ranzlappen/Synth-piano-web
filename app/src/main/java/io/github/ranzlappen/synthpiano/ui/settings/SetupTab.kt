@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,8 +23,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import android.app.Activity
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -32,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -63,6 +69,7 @@ import kotlinx.coroutines.launch
  * The SETUP tab: connectivity, hardware keyboard rebinding, theme picker,
  * and about. Single vertically-scrolling column of glass cards.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SetupTab(
     synth: SynthController,
@@ -71,6 +78,8 @@ fun SetupTab(
     midi: MidiManager,
     hwKeys: HwKeyboardMapper,
     modifier: Modifier = Modifier,
+    autoOpenEditor: Boolean = false,
+    onAutoOpenConsumed: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val devices by midi.connectedDeviceNames.collectAsState()
@@ -79,9 +88,18 @@ fun SetupTab(
     val accent = ThemeAccent.fromName(accentName)
     val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
     val userLayouts by layouts.userLayouts.collectAsState(initial = emptyList())
+    val currentLanguageTag by prefs.languageTag.collectAsState(initial = null)
+    val activity = LocalContext.current as? Activity
     var editingLayout by remember { mutableStateOf(false) }
     var saveAsCurrent by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(autoOpenEditor) {
+        if (autoOpenEditor) {
+            editingLayout = true
+            onAutoOpenConsumed()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -137,7 +155,7 @@ fun SetupTab(
                     Text(stringResource(R.string.settings_layout_edit))
                 }
                 OutlinedButton(onClick = { saveAsCurrent = true }) {
-                    Text("Save as…")
+                    Text(stringResource(R.string.score_save_as))
                 }
                 TextButton(onClick = {
                     scope.launch { prefs.setKeyboardLayout(BuiltInLayouts.DEFAULT) }
@@ -171,7 +189,7 @@ fun SetupTab(
             }
             if (userLayouts.isNotEmpty()) {
                 Text(
-                    "Saved layouts",
+                    stringResource(R.string.settings_saved_layouts),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -190,7 +208,13 @@ fun SetupTab(
                             } else null,
                             trailingIcon = {
                                 IconButton(onClick = { pendingDelete = layout.name }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Delete ${layout.name}")
+                                    Icon(
+                                        Icons.Filled.Close,
+                                        contentDescription = stringResource(
+                                            R.string.settings_delete_chip_label,
+                                            layout.name,
+                                        ),
+                                    )
                                 }
                             },
                         )
@@ -223,6 +247,31 @@ fun SetupTab(
                             scope.launch { prefs.setThemeAccent(t.name) }
                         },
                         modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        // Language
+        SettingsSection(title = stringResource(R.string.settings_language)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                LANGUAGE_OPTIONS.forEach { option ->
+                    val isActive = option.tag == currentLanguageTag
+                    FilterChip(
+                        selected = isActive,
+                        onClick = {
+                            scope.launch { prefs.setLanguageTag(option.tag) }
+                            LocaleManager.applyLocale(option.tag)
+                            activity?.recreate()
+                        },
+                        label = { Text(stringResource(option.labelRes)) },
+                        leadingIcon = if (isActive) {
+                            { Icon(Icons.Filled.Check, contentDescription = null) }
+                        } else null,
                     )
                 }
             }
@@ -290,16 +339,18 @@ fun SetupTab(
     pendingDelete?.let { name ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete layout") },
-            text = { Text("Remove the saved layout \"$name\"?") },
+            title = { Text(stringResource(R.string.settings_delete_layout_title)) },
+            text = { Text(stringResource(R.string.settings_delete_layout_confirm, name)) },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch { layouts.deleteUser(name) }
                     pendingDelete = null
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.action_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
     }
@@ -320,23 +371,23 @@ private fun SaveCurrentLayoutDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save layout as") },
+        title = { Text(stringResource(R.string.editor_save_as_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Layout name") },
+                    label = { Text(stringResource(R.string.editor_layout_name)) },
                     singleLine = true,
                 )
                 when {
                     collidesBuiltIn -> Text(
-                        "That name is reserved for a built-in layout.",
+                        stringResource(R.string.editor_name_reserved),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                     trimmed in takenNames -> Text(
-                        "A layout with this name already exists — saving will overwrite it.",
+                        stringResource(R.string.editor_name_overwrite),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
@@ -345,10 +396,12 @@ private fun SaveCurrentLayoutDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(trimmed) }, enabled = isValid) {
-                Text("Save")
+                Text(stringResource(R.string.action_save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 

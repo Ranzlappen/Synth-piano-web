@@ -118,7 +118,11 @@ fun MidiEditorPane(
                 val beatLabel = if (currentTick >= 0)
                     String.format("%.2f", currentTick.toFloat() / ppq)
                 else "—"
-                Text("Beat $beatLabel", style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(96.dp))
+                Text(
+                    stringResource(R.string.midi_editor_beat, beatLabel),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.width(96.dp),
+                )
                 Text("${stringResource(R.string.score_tempo)} $tempo", style = MaterialTheme.typography.labelMedium)
                 Slider(
                     value = tempo.toFloat(),
@@ -136,7 +140,10 @@ fun MidiEditorPane(
                             selectedIndex = null
                         }
                     }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete selected note")
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.midi_editor_delete_note),
+                        )
                     }
                 }
                 IconButton(
@@ -146,7 +153,12 @@ fun MidiEditorPane(
                     },
                     enabled = midiScore != null &&
                         (zoomX < PIANO_ROLL_ZOOM_MAX_X - 1e-3f || zoomY < PIANO_ROLL_ZOOM_MAX_Y - 1e-3f),
-                ) { Icon(Icons.Filled.Add, contentDescription = "Zoom in") }
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.midi_editor_zoom_in),
+                    )
+                }
                 IconButton(
                     onClick = {
                         zoomX = (zoomX / 1.25f).coerceAtLeast(PIANO_ROLL_ZOOM_MIN_X)
@@ -154,11 +166,21 @@ fun MidiEditorPane(
                     },
                     enabled = midiScore != null &&
                         (zoomX > PIANO_ROLL_ZOOM_MIN_X + 1e-3f || zoomY > PIANO_ROLL_ZOOM_MIN_Y + 1e-3f),
-                ) { Icon(Icons.Filled.Remove, contentDescription = "Zoom out") }
+                ) {
+                    Icon(
+                        Icons.Filled.Remove,
+                        contentDescription = stringResource(R.string.midi_editor_zoom_out),
+                    )
+                }
                 IconButton(
                     onClick = { zoomX = 1f; zoomY = 1f },
                     enabled = midiScore != null && (zoomX != 1f || zoomY != 1f),
-                ) { Icon(Icons.Filled.Refresh, contentDescription = "Reset zoom") }
+                ) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.midi_editor_reset_zoom),
+                    )
+                }
             }
 
             status?.let {

@@ -50,11 +50,13 @@ import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.components.AppGradientBackground
 import io.github.ranzlappen.synthpiano.ui.components.HeaderStrip
+import io.github.ranzlappen.synthpiano.ui.onboarding.LayoutOnboardingDialog
 import io.github.ranzlappen.synthpiano.ui.play.PerformTab
 import io.github.ranzlappen.synthpiano.ui.score.AppScoreState
 import io.github.ranzlappen.synthpiano.ui.score.ComposerTab
 import io.github.ranzlappen.synthpiano.ui.settings.SetupTab
 import io.github.ranzlappen.synthpiano.ui.sound.SoundTab
+import kotlinx.coroutines.launch
 
 private enum class Tab(val titleRes: Int) {
     Perform(R.string.nav_perform),
@@ -95,6 +97,9 @@ fun SynthAppRoot(
     val lastPath by session.lastPath.collectAsState()
 
     var midiSheetOpen by remember { mutableStateOf(false) }
+
+    val hasSeenOnboarding by prefs.hasSeenLayoutOnboarding.collectAsState(initial = true)
+    var autoOpenEditor by remember { mutableStateOf(false) }
 
     val widthDp = LocalConfiguration.current.screenWidthDp
     val railWide = widthDp >= 840
@@ -140,6 +145,8 @@ fun SynthAppRoot(
                             layouts = layouts,
                             midi = midi,
                             hwKeys = hwKeys,
+                            autoOpenEditor = autoOpenEditor,
+                            onAutoOpenConsumed = { autoOpenEditor = false },
                         )
                     }
                 }
@@ -150,6 +157,19 @@ fun SynthAppRoot(
             ModalBottomSheet(onDismissRequest = { midiSheetOpen = false }) {
                 MidiDeviceSheetContent(deviceNames = midiDevices)
             }
+        }
+
+        if (!hasSeenOnboarding) {
+            LayoutOnboardingDialog(
+                onCustomize = {
+                    scope.launch { prefs.setHasSeenLayoutOnboarding(true) }
+                    tab = Tab.Setup
+                    autoOpenEditor = true
+                },
+                onDismiss = {
+                    scope.launch { prefs.setHasSeenLayoutOnboarding(true) }
+                },
+            )
         }
     }
 }
@@ -188,7 +208,7 @@ private fun MidiDeviceSheetContent(deviceNames: List<String>) {
         modifier = Modifier.fillMaxWidth().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("MIDI Devices", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.midi_devices_title), style = MaterialTheme.typography.titleLarge)
         if (deviceNames.isEmpty()) {
             Text(
                 stringResource(R.string.midi_no_devices),

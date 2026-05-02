@@ -220,7 +220,7 @@ private fun PresetCard(
                     modifier = Modifier.weight(1f),
                 )
                 TextButton(onClick = { saveDialogOpen = true }) {
-                    Text("Save current as…")
+                    Text(stringResource(R.string.sound_save_current_as))
                 }
             }
             Row(
@@ -249,14 +249,14 @@ private fun PresetCard(
                             onDismissRequest = { menuFor = null },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Rename") },
+                                text = { Text(stringResource(R.string.action_rename)) },
                                 onClick = {
                                     renameTarget = p
                                     menuFor = null
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete") },
+                                text = { Text(stringResource(R.string.action_delete)) },
                                 onClick = {
                                     scope.launch { presets.deleteUser(p.name) }
                                     menuFor = null
@@ -273,12 +273,12 @@ private fun PresetCard(
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { saveDialogOpen = false },
-            title = { Text("Save preset") },
+            title = { Text(stringResource(R.string.sound_save_preset_title)) },
             text = {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.sound_preset_name_label)) },
                     singleLine = true,
                 )
             },
@@ -293,10 +293,12 @@ private fun PresetCard(
                             saveDialogOpen = false
                         }
                     },
-                ) { Text("Save") }
+                ) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { saveDialogOpen = false }) { Text("Cancel") }
+                TextButton(onClick = { saveDialogOpen = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
     }
@@ -305,12 +307,12 @@ private fun PresetCard(
         var name by remember(target.name) { mutableStateOf(target.name) }
         AlertDialog(
             onDismissRequest = { renameTarget = null },
-            title = { Text("Rename preset") },
+            title = { Text(stringResource(R.string.sound_rename_preset_title)) },
             text = {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.sound_preset_name_label)) },
                     singleLine = true,
                 )
             },
@@ -320,10 +322,12 @@ private fun PresetCard(
                         scope.launch { presets.renameUser(target.name, name) }
                         renameTarget = null
                     },
-                ) { Text("Rename") }
+                ) { Text(stringResource(R.string.action_rename)) }
             },
             dismissButton = {
-                TextButton(onClick = { renameTarget = null }) { Text("Cancel") }
+                TextButton(onClick = { renameTarget = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
     }
@@ -702,7 +706,7 @@ private fun FilterCard(
 ) {
     GlassCard(modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Filter", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.sound_filter_title), style = MaterialTheme.typography.titleMedium)
             // Cutoff is mapped to a logarithmic scale so the slider feels even
             // across the audible range (50 Hz to 18 kHz).
             val logMin = log10(50f)
@@ -740,7 +744,7 @@ private fun VoiceShapingCard(
 ) {
     GlassCard(modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Voice", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.sound_voice_title), style = MaterialTheme.typography.titleMedium)
             EnvelopeSlider(
                 label = "Velocity",
                 value = voice.velocitySensitivity,

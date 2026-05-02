@@ -2,6 +2,7 @@ package io.github.ranzlappen.synthpiano.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -45,6 +46,8 @@ private object Keys {
     val COMPOSER_EDITOR_H = floatPreferencesKey("composer_editor_height")
     val KEYBOARD_LAYOUT_JSON = stringPreferencesKey("keyboard_layout_json")
     val USER_LAYOUTS_JSON = stringPreferencesKey("user_layouts_json")
+    val HAS_SEEN_LAYOUT_ONBOARDING = booleanPreferencesKey("has_seen_layout_onboarding")
+    val LANGUAGE_TAG = stringPreferencesKey("language_tag")
 }
 
 /**
@@ -150,6 +153,14 @@ class PreferencesRepository(private val context: Context) {
     val userLayoutsJson: Flow<String?> =
         context.dataStore.data.map { it[Keys.USER_LAYOUTS_JSON] }
 
+    /** Whether the first-launch layout onboarding dialog has been seen. */
+    val hasSeenLayoutOnboarding: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.HAS_SEEN_LAYOUT_ONBOARDING] ?: false }
+
+    /** User-selected language tag (e.g. "en", "de", "es", "fr") or null = follow system. */
+    val languageTag: Flow<String?> =
+        context.dataStore.data.map { it[Keys.LANGUAGE_TAG] }
+
     suspend fun setWaveform(w: Waveform) =
         edit { it[Keys.WAVEFORM] = w.name }
 
@@ -216,8 +227,19 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setUserLayoutsJson(json: String) = edit { it[Keys.USER_LAYOUTS_JSON] = json }
 
+    suspend fun setHasSeenLayoutOnboarding(v: Boolean) = edit {
+        it[Keys.HAS_SEEN_LAYOUT_ONBOARDING] = v
+    }
+
+    suspend fun setLanguageTag(tag: String?) = edit {
+        if (tag.isNullOrBlank()) it.remove(Keys.LANGUAGE_TAG) else it[Keys.LANGUAGE_TAG] = tag
+    }
+
     /** Synchronous snapshot of the keymap JSON for non-suspending init paths. */
     fun blockingKeymapJson(): String? = runBlocking { keymapJson.first() }
+
+    /** Synchronous snapshot of the language tag for use during Activity startup. */
+    fun blockingLanguageTag(): String? = runBlocking { languageTag.first() }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.dataStore.edit { prefs -> block(prefs) }
@@ -238,5 +260,6 @@ class PreferencesRepository(private val context: Context) {
         Keys.CHORD_MOD_STICKY, Keys.CHORD_INV_STICKY, Keys.PIANO_ZOOM,
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
         Keys.KEYBOARD_LAYOUT_JSON, Keys.USER_LAYOUTS_JSON,
+        Keys.HAS_SEEN_LAYOUT_ONBOARDING, Keys.LANGUAGE_TAG,
     )
 }
