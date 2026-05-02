@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +72,8 @@ fun SetupTab(
     midi: MidiManager,
     hwKeys: HwKeyboardMapper,
     modifier: Modifier = Modifier,
+    autoOpenEditor: Boolean = false,
+    onAutoOpenConsumed: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val devices by midi.connectedDeviceNames.collectAsState()
@@ -82,6 +85,13 @@ fun SetupTab(
     var editingLayout by remember { mutableStateOf(false) }
     var saveAsCurrent by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(autoOpenEditor) {
+        if (autoOpenEditor) {
+            editingLayout = true
+            onAutoOpenConsumed()
+        }
+    }
 
     Column(
         modifier = modifier

@@ -128,4 +128,10 @@
     <!-- Export feedback -->
     <string name="recording_exported">Saved %1$d file(s) to Download/Synth Piano</string>
     <string name="recording_export_failed">Export failed</string>
+
+    <!-- First-launch layout onboarding -->
+    <string name="onboarding_layout_title">Welcome to Synth Piano</string>
+    <string name="onboarding_layout_body">The default keyboard layout may not fit every device. Want to customize the layout now? You can always change it later in Setup.</string>
+    <string name="onboarding_layout_customize">Customize now</string>
+    <string name="onboarding_layout_later">Maybe later</string>
 </resources>
