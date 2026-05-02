@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Synth Piano</string>
+
+    <!-- Top-level navigation -->
+    <string name="nav_play">Spielen</string>
+    <string name="nav_score">Partitur</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="nav_perform">Auftritt</string>
+    <string name="nav_sound">Klang</string>
+    <string name="nav_compose">Komponieren</string>
+    <string name="nav_setup">Einrichten</string>
+
+    <!-- Synth controls -->
+    <string name="waveform">Wellenform</string>
+    <string name="waveform_sine">Sinus</string>
+    <string name="waveform_square">Rechteck</string>
+    <string name="waveform_saw">Sägezahn</string>
+    <string name="waveform_triangle">Dreieck</string>
+    <string name="waveform_piano">Klavier</string>
+
+    <string name="adsr_attack">Attack</string>
+    <string name="adsr_decay">Decay</string>
+    <string name="adsr_sustain">Sustain</string>
+    <string name="adsr_release">Release</string>
+    <string name="amplitude">Amplitude</string>
+    <string name="master_volume">Master</string>
+
+    <string name="octave">Oktave</string>
+    <string name="octave_up">Oktave +</string>
+    <string name="octave_down">Oktave −</string>
+
+    <!-- Recording -->
+    <string name="record_start">Aufnehmen</string>
+    <string name="record_stop">Stopp</string>
+    <string name="record_share">Aufnahme teilen</string>
+    <string name="record_saved">Gespeichert: %1$s</string>
+    <string name="record_error">Aufnahme fehlgeschlagen: %1$s</string>
+    <string name="recording_now">REC</string>
+    <string name="recordings_section">Aufnahmen</string>
+    <string name="recordings_empty">Noch keine Aufnahmen</string>
+    <string name="recording_delete">Löschen</string>
+
+    <!-- Score -->
+    <string name="score_play">Partitur abspielen</string>
+    <string name="score_pause">Partitur pausieren</string>
+    <string name="score_stop">Stopp</string>
+    <string name="score_load">.mid laden</string>
+    <string name="score_load_demo">Demo laden</string>
+    <string name="score_save">Speichern</string>
+    <string name="score_save_as">Speichern unter…</string>
+    <string name="score_new">Neue Partitur</string>
+    <string name="score_no_score_loaded">Keine Partitur geladen</string>
+    <string name="score_loaded">Geladen: %1$s</string>
+    <string name="score_load_failed">Partitur konnte nicht geladen werden: %1$s</string>
+    <string name="score_save_failed">Partitur konnte nicht gespeichert werden: %1$s</string>
+    <string name="score_saved">Partitur gespeichert</string>
+    <string name="score_tempo">Tempo</string>
+    <string name="score_title">Titel</string>
+    <string name="score_notes">Noten</string>
+    <string name="score_zoom_in">Vergrößern</string>
+    <string name="score_zoom_out">Verkleinern</string>
+
+    <!-- Settings -->
+    <string name="settings_audio">Audio</string>
+    <string name="settings_keyboard">Hardware-Tastatur</string>
+    <string name="settings_midi">MIDI</string>
+    <string name="settings_about">Info</string>
+    <string name="settings_theme">Design</string>
+    <string name="settings_remap_key">Auf eine Zeile tippen, dann eine Taste drücken</string>
+    <string name="settings_capture_prompt">Beliebige Taste drücken…</string>
+    <string name="settings_capture_cancel">Abbrechen</string>
+    <string name="settings_clear_binding">Entfernen</string>
+    <string name="settings_reset_keys">Tastaturbelegung zurücksetzen</string>
+    <string name="settings_keyboard_layout">Tastenlayout</string>
+    <string name="settings_keyboard_layout_summary">%1$s · %2$d Bereich(e)</string>
+    <string name="settings_layout_edit">Layout bearbeiten</string>
+    <string name="settings_layout_reset">Zurücksetzen</string>
+    <string name="settings_layout_default">Standard</string>
+    <string name="settings_layout_thumb_friendly">Daumenfreundlich</string>
+    <string name="settings_polyphony">Polyphonie</string>
+    <string name="settings_polyphony_voices">%1$d Stimmen</string>
+    <string name="settings_engine_running">Engine: läuft</string>
+    <string name="settings_engine_stopped">Engine: gestoppt</string>
+    <string name="settings_sample_rate">Abtastrate: %1$s</string>
+    <string name="settings_engine_not_started">Engine nicht gestartet</string>
+    <string name="settings_low_latency_mode">Latenzarmer Modus (exklusiv)</string>
+    <string name="settings_low_latency_hint">Fordert exklusiven Audiozugriff von Oboe an. Bei Tonstörungen mit anderen Apps deaktivieren.</string>
+
+    <!-- MIDI -->
+    <string name="midi_no_devices">Keine MIDI-Geräte verbunden</string>
+    <string name="midi_device_connected">Verbunden: %1$s</string>
+    <string name="midi_status_count">%1$d MIDI</string>
+    <string name="midi_status_none">Kein MIDI</string>
+    <string name="midi_hint">USB-MIDI-Controller über OTG anschließen. Bluetooth-MIDI wird in dieser Version nicht unterstützt.</string>
+
+    <!-- About -->
+    <string name="about_version">Version %1$s</string>
+    <string name="about_source_attribution">Portierung von Ranzlappen/synth-piano (Python)</string>
+    <string name="about_engine">Audio-Engine: Google Oboe</string>
+    <string name="about_license">MIT-Lizenz</string>
+
+    <!-- Bug Report -->
+    <string name="settings_bug_report">Fehlerbericht</string>
+    <string name="bug_report_disclaimer">Enthält App-, Geräte- und Systemstatus, um das Problem zu reproduzieren.</string>
+    <string name="bug_report_describe_hint">Beschreibe, was schiefgelaufen ist, was du erwartet hast und wie es reproduziert werden kann…</string>
+    <string name="bug_report_create">Fehlerbericht erstellen</string>
+    <string name="bug_report_ready_title">Fehlerbericht bereit</string>
+    <string name="bug_report_email">Fehlerbericht per E-Mail senden</string>
+    <string name="bug_report_copy">Kopieren</string>
+    <string name="bug_report_copied">In Zwischenablage kopiert</string>
+    <string name="bug_report_close">Schließen</string>
+    <string name="bug_report_subject">Synth Piano Fehlerbericht</string>
+
+    <!-- Tab descriptions / hints -->
+    <string name="sound_oscillator">Oszillator</string>
+    <string name="sound_envelope">Hüllkurve</string>
+    <string name="sound_oscilloscope">Oszilloskop</string>
+    <string name="sound_master_amp_label">Master-Amplitude</string>
+    <string name="perform_keyboard">Tastatur</string>
+
+    <!-- Generic actions -->
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_share">Teilen</string>
+    <string name="action_delete">Löschen</string>
+    <string name="action_export">In Downloads exportieren</string>
+    <string name="action_save">Speichern</string>
+    <string name="action_apply">Übernehmen</string>
+    <string name="action_rename">Umbenennen</string>
+
+    <!-- Keyboard layout editor -->
+    <string name="editor_title">Layout bearbeiten</string>
+    <string name="editor_add_keys">+ Tasten</string>
+    <string name="editor_add_mods">+ Mods</string>
+    <string name="editor_save_as_title">Layout speichern unter</string>
+    <string name="editor_layout_name">Layout-Name</string>
+    <string name="editor_name_reserved">Dieser Name ist für ein integriertes Layout reserviert.</string>
+    <string name="editor_name_overwrite">Ein Layout mit diesem Namen existiert bereits — beim Speichern wird es überschrieben.</string>
+    <string name="editor_empty_hint">Leeres Layout — auf + Tasten oder + Mods tippen, um einen Bereich hinzuzufügen.</string>
+    <string name="editor_gesture_hint">Lange tippen zum Verschieben · Ecke ziehen zum Skalieren · ↻ zum Drehen</string>
+    <string name="editor_modifiers_label">Modifier</string>
+    <string name="editor_modifiers_empty">(leer)</string>
+    <string name="editor_modifier_panel_title">Modifier-Bereich</string>
+    <string name="editor_keyboard_panel_title">Tastatur-Bereich</string>
+    <string name="editor_modifier_subcontrols">Wähle, welche Untersteuerungen und Akkord-Pills in diesem Bereich angezeigt werden.</string>
+    <string name="editor_show_lock">LOCK-Reihe anzeigen</string>
+    <string name="editor_show_shift">SHIFT-Reihe anzeigen</string>
+    <string name="editor_show_zoom">Zoom-Tasten anzeigen</string>
+    <string name="editor_chord_qualities">Akkordtypen</string>
+    <string name="editor_inversions">Umkehrungen</string>
+    <string name="editor_lowest_note">Tiefster Ton: %1$s</string>
+    <string name="editor_white_keys_count">Weiße Tasten: %1$d</string>
+    <string name="editor_panel_from_note">ab %1$s</string>
+    <string name="editor_panel_rotation">↻ %1$d°</string>
+    <string name="editor_delete_panel">Bereich löschen</string>
+    <string name="editor_rotate_panel">Bereich drehen</string>
+    <string name="editor_panel_options">Bereichsoptionen</string>
+
+    <plurals name="editor_white_key_count">
+        <item quantity="one">%d weiße Taste</item>
+        <item quantity="other">%d weiße Tasten</item>
+    </plurals>
+
+    <!-- Saved-layout management -->
+    <string name="settings_saved_layouts">Gespeicherte Layouts</string>
+    <string name="settings_delete_layout_title">Layout löschen</string>
+    <string name="settings_delete_layout_confirm">Gespeichertes Layout \"%1$s\" entfernen?</string>
+    <string name="settings_delete_chip_label">%1$s löschen</string>
+
+    <!-- MIDI bottom sheet -->
+    <string name="midi_devices_title">MIDI-Geräte</string>
+
+    <!-- Sound tab presets -->
+    <string name="sound_save_current_as">Aktuelles speichern unter…</string>
+    <string name="sound_save_preset_title">Preset speichern</string>
+    <string name="sound_rename_preset_title">Preset umbenennen</string>
+    <string name="sound_preset_name_label">Name</string>
+    <string name="sound_filter_title">Filter</string>
+    <string name="sound_voice_title">Stimme</string>
+
+    <!-- Hardware keymap editor -->
+    <string name="keymap_bind_new">+ Neue Taste binden</string>
+    <string name="keymap_bind_dialog_title">Neue Taste binden</string>
+    <string name="keymap_offset_help">MIDI-Offset relativ zu C4 eingeben (z. B. 0 = C4, 7 = G4):</string>
+    <string name="keymap_offset_label">Offset</string>
+    <string name="keymap_capture">Taste erfassen</string>
+
+    <!-- Composer / MIDI editor -->
+    <string name="midi_editor_beat">Schlag %1$s</string>
+    <string name="midi_editor_delete_note">Ausgewählte Note löschen</string>
+    <string name="midi_editor_zoom_in">Vergrößern</string>
+    <string name="midi_editor_zoom_out">Verkleinern</string>
+    <string name="midi_editor_reset_zoom">Zoom zurücksetzen</string>
+
+    <!-- Export feedback -->
+    <string name="recording_exported">%1$d Datei(en) nach Download/Synth Piano gespeichert</string>
+    <string name="recording_export_failed">Export fehlgeschlagen</string>
+
+    <!-- Language settings -->
+    <string name="settings_language">Sprache</string>
+    <string name="settings_language_system">Systemstandard</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_german">Deutsch</string>
+    <string name="settings_language_spanish">Español</string>
+    <string name="settings_language_french">Français</string>
+
+    <!-- First-launch layout onboarding -->
+    <string name="onboarding_layout_title">Willkommen bei Synth Piano</string>
+    <string name="onboarding_layout_body">Das Standard-Tastenlayout passt nicht auf jedes Gerät. Möchtest du das Layout jetzt anpassen? Du kannst es später jederzeit unter „Einrichten“ ändern.</string>
+    <string name="onboarding_layout_customize">Jetzt anpassen</string>
+    <string name="onboarding_layout_later">Später</string>
+</resources>
