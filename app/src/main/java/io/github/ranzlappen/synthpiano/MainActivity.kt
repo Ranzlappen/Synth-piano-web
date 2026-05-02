@@ -16,6 +16,7 @@ import io.github.ranzlappen.synthpiano.audio.SynthController
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.ui.SynthAppRoot
+import io.github.ranzlappen.synthpiano.ui.settings.LocaleManager
 import io.github.ranzlappen.synthpiano.ui.theme.SynthPianoTheme
 import io.github.ranzlappen.synthpiano.ui.theme.ThemeAccent
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var hwKeys: HwKeyboardMapper
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Apply the persisted language tag before super so AppCompatDelegate
+        // can install the right locale list before the activity recreates
+        // its resources.
+        LocaleManager.applyLocale(SynthApp.get().prefs.blockingLanguageTag())
+
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)

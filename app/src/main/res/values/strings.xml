@@ -196,6 +196,14 @@
     <string name="recording_exported">Saved %1$d file(s) to Download/Synth Piano</string>
     <string name="recording_export_failed">Export failed</string>
 
+    <!-- Language settings -->
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System default</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_german">Deutsch</string>
+    <string name="settings_language_spanish">Español</string>
+    <string name="settings_language_french">Français</string>
+
     <!-- First-launch layout onboarding -->
     <string name="onboarding_layout_title">Welcome to Synth Piano</string>
     <string name="onboarding_layout_body">The default keyboard layout may not fit every device. Want to customize the layout now? You can always change it later in Setup.</string>

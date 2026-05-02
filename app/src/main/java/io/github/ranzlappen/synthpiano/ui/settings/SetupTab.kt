@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,8 +23,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import android.app.Activity
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -43,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -64,6 +69,7 @@ import kotlinx.coroutines.launch
  * The SETUP tab: connectivity, hardware keyboard rebinding, theme picker,
  * and about. Single vertically-scrolling column of glass cards.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SetupTab(
     synth: SynthController,
@@ -82,6 +88,8 @@ fun SetupTab(
     val accent = ThemeAccent.fromName(accentName)
     val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
     val userLayouts by layouts.userLayouts.collectAsState(initial = emptyList())
+    val currentLanguageTag by prefs.languageTag.collectAsState(initial = null)
+    val activity = LocalContext.current as? Activity
     var editingLayout by remember { mutableStateOf(false) }
     var saveAsCurrent by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
@@ -239,6 +247,31 @@ fun SetupTab(
                             scope.launch { prefs.setThemeAccent(t.name) }
                         },
                         modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        // Language
+        SettingsSection(title = stringResource(R.string.settings_language)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                LANGUAGE_OPTIONS.forEach { option ->
+                    val isActive = option.tag == currentLanguageTag
+                    FilterChip(
+                        selected = isActive,
+                        onClick = {
+                            scope.launch { prefs.setLanguageTag(option.tag) }
+                            LocaleManager.applyLocale(option.tag)
+                            activity?.recreate()
+                        },
+                        label = { Text(stringResource(option.labelRes)) },
+                        leadingIcon = if (isActive) {
+                            { Icon(Icons.Filled.Check, contentDescription = null) }
+                        } else null,
                     )
                 }
             }
