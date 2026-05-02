@@ -100,6 +100,18 @@
     <string name="about_engine">Audio engine: Google Oboe</string>
     <string name="about_license">MIT License</string>
 
+    <!-- Bug Report -->
+    <string name="settings_bug_report">Bug Report</string>
+    <string name="bug_report_disclaimer">Includes app, device, and system status to help us reproduce the issue.</string>
+    <string name="bug_report_describe_hint">Describe what went wrong, what you expected, and how to reproduce…</string>
+    <string name="bug_report_create">Create bug report</string>
+    <string name="bug_report_ready_title">Bug report ready</string>
+    <string name="bug_report_email">Email bug report</string>
+    <string name="bug_report_copy">Copy</string>
+    <string name="bug_report_copied">Copied to clipboard</string>
+    <string name="bug_report_close">Close</string>
+    <string name="bug_report_subject">Synth Piano Bug Report</string>
+
     <!-- Tab descriptions / hints -->
     <string name="sound_oscillator">Oscillator</string>
     <string name="sound_envelope">Envelope</string>
