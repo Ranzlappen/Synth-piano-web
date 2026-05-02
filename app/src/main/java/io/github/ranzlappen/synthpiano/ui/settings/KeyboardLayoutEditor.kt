@@ -57,8 +57,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
 import io.github.ranzlappen.synthpiano.data.ChordInversion
 import io.github.ranzlappen.synthpiano.data.ChordQuality
@@ -204,9 +207,9 @@ private fun EditorTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            TextButton(onClick = onCancel) { Text("Cancel") }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
             Text(
-                "Edit Layout",
+                stringResource(R.string.editor_title),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
@@ -219,26 +222,26 @@ private fun EditorTopBar(
             TextButton(onClick = onReset) {
                 Icon(Icons.Filled.Refresh, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("Reset")
+                Text(stringResource(R.string.settings_layout_reset))
             }
             TextButton(onClick = onAddKeyboard) {
                 Icon(Icons.Filled.Piano, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("+ Keys")
+                Text(stringResource(R.string.editor_add_keys))
             }
             TextButton(onClick = onAddModifier) {
                 Icon(Icons.Filled.Tune, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("+ Mods")
+                Text(stringResource(R.string.editor_add_mods))
             }
             if (onSaveAs != null) {
                 TextButton(onClick = onSaveAs, enabled = canSave) {
                     Icon(Icons.Filled.Save, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("Save as…")
+                    Text(stringResource(R.string.score_save_as))
                 }
             }
-            Button(onClick = onSave, enabled = canSave) { Text("Save") }
+            Button(onClick = onSave, enabled = canSave) { Text(stringResource(R.string.action_save)) }
         }
     }
 }
@@ -258,23 +261,23 @@ private fun SaveLayoutAsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save layout as") },
+        title = { Text(stringResource(R.string.editor_save_as_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Layout name") },
+                    label = { Text(stringResource(R.string.editor_layout_name)) },
                     singleLine = true,
                 )
                 when {
                     collidesBuiltIn -> Text(
-                        "That name is reserved for a built-in layout.",
+                        stringResource(R.string.editor_name_reserved),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                     trimmed in takenNames -> Text(
-                        "A layout with this name already exists — saving will overwrite it.",
+                        stringResource(R.string.editor_name_overwrite),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
@@ -283,10 +286,12 @@ private fun SaveLayoutAsDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(trimmed) }, enabled = isValid) {
-                Text("Save")
+                Text(stringResource(R.string.action_save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 
@@ -324,13 +329,13 @@ private fun EditorCanvas(
         }
         if (draftKbs.isEmpty() && draftMods.isEmpty()) {
             Text(
-                "Empty layout — tap + Keys or + Mods to add a panel.",
+                stringResource(R.string.editor_empty_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.align(Alignment.Center).padding(16.dp),
             )
         } else {
             Text(
-                "Long-press to drag · drag corner to resize · ↻ to rotate",
+                stringResource(R.string.editor_gesture_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier
@@ -396,15 +401,22 @@ private fun EditableKeyboardView(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
-            Text("${panel.whiteKeyCount} white keys", style = MaterialTheme.typography.labelMedium)
             Text(
-                "from $firstName",
+                pluralStringResource(
+                    R.plurals.editor_white_key_count,
+                    panel.whiteKeyCount,
+                    panel.whiteKeyCount,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                stringResource(R.string.editor_panel_from_note, firstName),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (panel.rotationDeg != 0) {
                 Text(
-                    "↻ ${panel.rotationDeg}°",
+                    stringResource(R.string.editor_panel_rotation, panel.rotationDeg),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -474,12 +486,16 @@ private fun EditableModifierView(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.tertiary,
             )
-            Text("Modifiers", style = MaterialTheme.typography.labelMedium)
+            Text(
+                stringResource(R.string.editor_modifiers_label),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            val emptyLabel = stringResource(R.string.editor_modifiers_empty)
             val flags = buildList {
                 if (panel.showLock) add("LOCK")
                 if (panel.showShift) add("SHIFT")
                 if (panel.showZoom) add("Zoom")
-            }.joinToString(" · ").ifEmpty { "(empty)" }
+            }.joinToString(" · ").ifEmpty { emptyLabel }
             Text(
                 flags,
                 style = MaterialTheme.typography.labelSmall,
@@ -487,7 +503,7 @@ private fun EditableModifierView(
             )
             if (panel.rotationDeg != 0) {
                 Text(
-                    "↻ ${panel.rotationDeg}°",
+                    stringResource(R.string.editor_panel_rotation, panel.rotationDeg),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.tertiary,
                 )
@@ -524,34 +540,34 @@ private fun ModifierPanelEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Modifier panel") },
+        title = { Text(stringResource(R.string.editor_modifier_panel_title)) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    "Choose which sub-controls and chord pills render in this panel.",
+                    stringResource(R.string.editor_modifier_subcontrols),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 ToggleRow(
-                    label = "Show LOCK row",
+                    label = stringResource(R.string.editor_show_lock),
                     checked = showLock,
                     onChange = { showLock = it },
                 )
                 ToggleRow(
-                    label = "Show SHIFT row",
+                    label = stringResource(R.string.editor_show_shift),
                     checked = showShift,
                     onChange = { showShift = it },
                 )
                 ToggleRow(
-                    label = "Show zoom buttons",
+                    label = stringResource(R.string.editor_show_zoom),
                     checked = showZoom,
                     onChange = { showZoom = it },
                 )
                 Text(
-                    "Chord qualities",
+                    stringResource(R.string.editor_chord_qualities),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 FlowRow(
@@ -570,7 +586,7 @@ private fun ModifierPanelEditDialog(
                     }
                 }
                 Text(
-                    "Inversions",
+                    stringResource(R.string.editor_inversions),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 FlowRow(
@@ -607,9 +623,11 @@ private fun ModifierPanelEditDialog(
                         inversions = i,
                     ),
                 )
-            }) { Text("Apply") }
+            }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 
@@ -625,11 +643,14 @@ private fun KeyboardPanelEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Keyboard panel") },
+        title = { Text(stringResource(R.string.editor_keyboard_panel_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Lowest note: ${midiToNoteName(snapToWhiteKey(lowestMidi.toInt()))}",
+                    stringResource(
+                        R.string.editor_lowest_note,
+                        midiToNoteName(snapToWhiteKey(lowestMidi.toInt())),
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -639,7 +660,7 @@ private fun KeyboardPanelEditDialog(
                     steps = 96 - 21 - 1,
                 )
                 Text(
-                    "White keys: ${whiteKeyCount.toInt()}",
+                    stringResource(R.string.editor_white_keys_count, whiteKeyCount.toInt()),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -656,9 +677,11 @@ private fun KeyboardPanelEditDialog(
                     firstMidi = snapToWhiteKey(lowestMidi.toInt()),
                     whiteKeyCount = whiteKeyCount.toInt().coerceIn(7, 52),
                 ))
-            }) { Text("Apply") }
+            }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 
@@ -744,7 +767,7 @@ private fun EditableChrome(
             ) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = "Delete panel",
+                    contentDescription = stringResource(R.string.editor_delete_panel),
                     tint = MaterialTheme.colorScheme.error,
                 )
             }
@@ -758,7 +781,10 @@ private fun EditableChrome(
                 .size(32.dp)
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), CircleShape),
         ) {
-            Icon(Icons.Filled.RotateRight, contentDescription = "Rotate panel")
+            Icon(
+                Icons.Filled.RotateRight,
+                contentDescription = stringResource(R.string.editor_rotate_panel),
+            )
         }
 
         // Bottom-left: per-panel options.
@@ -772,7 +798,7 @@ private fun EditableChrome(
         ) {
             Icon(
                 Icons.Filled.Settings,
-                contentDescription = "Panel options",
+                contentDescription = stringResource(R.string.editor_panel_options),
                 tint = accentColor,
             )
         }

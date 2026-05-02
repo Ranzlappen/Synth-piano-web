@@ -124,6 +124,51 @@
     <string name="action_share">Share</string>
     <string name="action_delete">Delete</string>
     <string name="action_export">Export to Downloads</string>
+    <string name="action_save">Save</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_rename">Rename</string>
+
+    <!-- Keyboard layout editor -->
+    <string name="editor_title">Edit Layout</string>
+    <string name="editor_add_keys">+ Keys</string>
+    <string name="editor_add_mods">+ Mods</string>
+    <string name="editor_save_as_title">Save layout as</string>
+    <string name="editor_layout_name">Layout name</string>
+    <string name="editor_name_reserved">That name is reserved for a built-in layout.</string>
+    <string name="editor_name_overwrite">A layout with this name already exists — saving will overwrite it.</string>
+    <string name="editor_empty_hint">Empty layout — tap + Keys or + Mods to add a panel.</string>
+    <string name="editor_gesture_hint">Long-press to drag · drag corner to resize · ↻ to rotate</string>
+    <string name="editor_modifiers_label">Modifiers</string>
+    <string name="editor_modifiers_empty">(empty)</string>
+    <string name="editor_modifier_panel_title">Modifier panel</string>
+    <string name="editor_keyboard_panel_title">Keyboard panel</string>
+    <string name="editor_modifier_subcontrols">Choose which sub-controls and chord pills render in this panel.</string>
+    <string name="editor_show_lock">Show LOCK row</string>
+    <string name="editor_show_shift">Show SHIFT row</string>
+    <string name="editor_show_zoom">Show zoom buttons</string>
+    <string name="editor_chord_qualities">Chord qualities</string>
+    <string name="editor_inversions">Inversions</string>
+    <string name="editor_lowest_note">Lowest note: %1$s</string>
+    <string name="editor_white_keys_count">White keys: %1$d</string>
+    <string name="editor_panel_from_note">from %1$s</string>
+    <string name="editor_panel_rotation">↻ %1$d°</string>
+    <string name="editor_delete_panel">Delete panel</string>
+    <string name="editor_rotate_panel">Rotate panel</string>
+    <string name="editor_panel_options">Panel options</string>
+
+    <plurals name="editor_white_key_count">
+        <item quantity="one">%d white key</item>
+        <item quantity="other">%d white keys</item>
+    </plurals>
+
+    <!-- Saved-layout management -->
+    <string name="settings_saved_layouts">Saved layouts</string>
+    <string name="settings_delete_layout_title">Delete layout</string>
+    <string name="settings_delete_layout_confirm">Remove the saved layout \"%1$s\"?</string>
+    <string name="settings_delete_chip_label">Delete %1$s</string>
+
+    <!-- MIDI bottom sheet -->
+    <string name="midi_devices_title">MIDI Devices</string>
 
     <!-- Export feedback -->
     <string name="recording_exported">Saved %1$d file(s) to Download/Synth Piano</string>

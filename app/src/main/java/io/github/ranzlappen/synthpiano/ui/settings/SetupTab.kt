@@ -147,7 +147,7 @@ fun SetupTab(
                     Text(stringResource(R.string.settings_layout_edit))
                 }
                 OutlinedButton(onClick = { saveAsCurrent = true }) {
-                    Text("Save as…")
+                    Text(stringResource(R.string.score_save_as))
                 }
                 TextButton(onClick = {
                     scope.launch { prefs.setKeyboardLayout(BuiltInLayouts.DEFAULT) }
@@ -181,7 +181,7 @@ fun SetupTab(
             }
             if (userLayouts.isNotEmpty()) {
                 Text(
-                    "Saved layouts",
+                    stringResource(R.string.settings_saved_layouts),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -200,7 +200,13 @@ fun SetupTab(
                             } else null,
                             trailingIcon = {
                                 IconButton(onClick = { pendingDelete = layout.name }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Delete ${layout.name}")
+                                    Icon(
+                                        Icons.Filled.Close,
+                                        contentDescription = stringResource(
+                                            R.string.settings_delete_chip_label,
+                                            layout.name,
+                                        ),
+                                    )
                                 }
                             },
                         )
@@ -300,16 +306,18 @@ fun SetupTab(
     pendingDelete?.let { name ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete layout") },
-            text = { Text("Remove the saved layout \"$name\"?") },
+            title = { Text(stringResource(R.string.settings_delete_layout_title)) },
+            text = { Text(stringResource(R.string.settings_delete_layout_confirm, name)) },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch { layouts.deleteUser(name) }
                     pendingDelete = null
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.action_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
     }
@@ -330,23 +338,23 @@ private fun SaveCurrentLayoutDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save layout as") },
+        title = { Text(stringResource(R.string.editor_save_as_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Layout name") },
+                    label = { Text(stringResource(R.string.editor_layout_name)) },
                     singleLine = true,
                 )
                 when {
                     collidesBuiltIn -> Text(
-                        "That name is reserved for a built-in layout.",
+                        stringResource(R.string.editor_name_reserved),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                     trimmed in takenNames -> Text(
-                        "A layout with this name already exists — saving will overwrite it.",
+                        stringResource(R.string.editor_name_overwrite),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
@@ -355,10 +363,12 @@ private fun SaveCurrentLayoutDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(trimmed) }, enabled = isValid) {
-                Text("Save")
+                Text(stringResource(R.string.action_save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 }
 

@@ -208,7 +208,7 @@ private fun MidiDeviceSheetContent(deviceNames: List<String>) {
         modifier = Modifier.fillMaxWidth().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("MIDI Devices", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.midi_devices_title), style = MaterialTheme.typography.titleLarge)
         if (deviceNames.isEmpty()) {
             Text(
                 stringResource(R.string.midi_no_devices),
