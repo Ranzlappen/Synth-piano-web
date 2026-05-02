@@ -228,6 +228,11 @@ fun SetupTab(
             }
         }
 
+        // Bug Report
+        SettingsSection(title = stringResource(R.string.settings_bug_report)) {
+            BugReportSection(synth = synth, midi = midi)
+        }
+
         // About
         SettingsSection(title = stringResource(R.string.settings_about)) {
             InfoRow(stringResource(R.string.about_version, BuildConfig.VERSION_NAME))
