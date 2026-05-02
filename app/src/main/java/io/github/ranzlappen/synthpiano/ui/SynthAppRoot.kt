@@ -1,5 +1,7 @@
 package io.github.ranzlappen.synthpiano.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,12 +50,14 @@ import io.github.ranzlappen.synthpiano.data.LayoutRepository
 import io.github.ranzlappen.synthpiano.data.PresetRepository
 import io.github.ranzlappen.synthpiano.input.HwKeyboardMapper
 import io.github.ranzlappen.synthpiano.midi.MidiManager
+import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
 import io.github.ranzlappen.synthpiano.ui.components.AppGradientBackground
 import io.github.ranzlappen.synthpiano.ui.components.HeaderStrip
 import io.github.ranzlappen.synthpiano.ui.onboarding.LayoutOnboardingDialog
 import io.github.ranzlappen.synthpiano.ui.play.PerformTab
 import io.github.ranzlappen.synthpiano.ui.score.AppScoreState
 import io.github.ranzlappen.synthpiano.ui.score.ComposerTab
+import io.github.ranzlappen.synthpiano.ui.settings.KeyboardLayoutEditor
 import io.github.ranzlappen.synthpiano.ui.settings.SetupTab
 import io.github.ranzlappen.synthpiano.ui.sound.SoundTab
 import kotlinx.coroutines.launch
@@ -99,7 +103,12 @@ fun SynthAppRoot(
     var midiSheetOpen by remember { mutableStateOf(false) }
 
     val hasSeenOnboarding by prefs.hasSeenLayoutOnboarding.collectAsState(initial = true)
-    var autoOpenEditor by remember { mutableStateOf(false) }
+    // Hosted at the root so the editor renders inside the activity's own
+    // window (and inherits its cutout mode + safe-area insets) instead of
+    // spawning a separate Compose Dialog window.
+    var editingLayout by rememberSaveable { mutableStateOf(false) }
+    val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
+    val userLayouts by layouts.userLayouts.collectAsState(initial = emptyList())
 
     val widthDp = LocalConfiguration.current.screenWidthDp
     val railWide = widthDp >= 840
@@ -145,11 +154,36 @@ fun SynthAppRoot(
                             layouts = layouts,
                             midi = midi,
                             hwKeys = hwKeys,
-                            autoOpenEditor = autoOpenEditor,
-                            onAutoOpenConsumed = { autoOpenEditor = false },
+                            onEditLayout = { editingLayout = true },
                         )
                     }
                 }
+            }
+        }
+
+        if (editingLayout) {
+            BackHandler(onBack = { editingLayout = false })
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+            ) {
+                KeyboardLayoutEditor(
+                    initial = keyboardLayout,
+                    onCancel = { editingLayout = false },
+                    onSave = { layout ->
+                        scope.launch { prefs.setKeyboardLayout(layout) }
+                        editingLayout = false
+                    },
+                    onSaveAs = { layout ->
+                        scope.launch {
+                            layouts.saveUser(layout)
+                            layouts.apply(layout)
+                        }
+                        editingLayout = false
+                    },
+                    existingNames = userLayouts.map { it.name }.toSet(),
+                )
             }
         }
 
@@ -159,12 +193,12 @@ fun SynthAppRoot(
             }
         }
 
-        if (!hasSeenOnboarding) {
+        if (!hasSeenOnboarding && !editingLayout) {
             LayoutOnboardingDialog(
                 onCustomize = {
                     scope.launch { prefs.setHasSeenLayoutOnboarding(true) }
                     tab = Tab.Setup
-                    autoOpenEditor = true
+                    editingLayout = true
                 },
                 onDismiss = {
                     scope.launch { prefs.setHasSeenLayoutOnboarding(true) }
