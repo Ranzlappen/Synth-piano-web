@@ -42,15 +42,20 @@ public:
     void setMasterAmp(float a) { masterAmp_.store(a, std::memory_order_relaxed); }
 
     void setAdsr(float attackSec, float decaySec, float sustain, float releaseSec) {
-        adsr_.attack.store(attackSec, std::memory_order_relaxed);
-        adsr_.decay.store(decaySec, std::memory_order_relaxed);
-        adsr_.sustain.store(sustain, std::memory_order_relaxed);
-        adsr_.release.store(releaseSec, std::memory_order_relaxed);
+        envelope_.setAdsr(attackSec, decaySec, sustain, releaseSec);
     }
 
     void setEnvelopeCurve(float curve) {
-        adsr_.curve.store(curve, std::memory_order_relaxed);
+        envelope_.setCurve(curve);
     }
+
+    /**
+     * Replace the active envelope with a multi-segment shape. Vertices is a
+     * flat float buffer laid out as [t0, l0, c0, t1, l1, c1, ...] of length
+     * 3*numVertices. Caller-side validation/clamping is duplicated here so
+     * malformed Kotlin input can't push the audio thread off a cliff.
+     */
+    void setEnvelopeShape(const float* vertices, int32_t numVertices, int32_t sustainIndex);
 
     void setFilter(float cutoffHz, float resonance) {
         filter_.cutoffHz.store(cutoffHz, std::memory_order_relaxed);
@@ -165,7 +170,7 @@ private:
 
     std::shared_ptr<oboe::AudioStream> stream_;
     std::array<Voice, kMaxVoices> voices_{};
-    AdsrParams adsr_{};
+    EnvelopeParams envelope_{};
     FilterParams filter_{};
     VoiceModParams mod_{};
     std::atomic<int32_t> waveform_{static_cast<int32_t>(Waveform::Sine)};

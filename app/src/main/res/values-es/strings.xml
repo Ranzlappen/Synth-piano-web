@@ -251,4 +251,8 @@
     <string name="onboarding_layout_body">La disposición predeterminada del teclado puede no encajar en todos los dispositivos. ¿Quieres personalizarla ahora? Puedes cambiarla más tarde en Configurar.</string>
     <string name="onboarding_layout_customize">Personalizar ahora</string>
     <string name="onboarding_layout_later">Quizás más tarde</string>
+
+    <!-- Envelope editor info popup -->
+    <string name="info_envelope_editor_title">Editor de envolvente</string>
+    <string name="info_envelope_editor_body">Arrastra cualquier punto en horizontal (tiempo) o vertical (nivel). Toca un tramo vacío de la línea para añadir un punto nuevo. Mantén pulsado un punto para eliminarlo. El círculo punteado marca el punto de sustain — su nivel se mantiene mientras una tecla está pulsada.</string>
 </resources>

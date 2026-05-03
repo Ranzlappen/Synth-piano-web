@@ -25,6 +25,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -47,23 +48,66 @@ fun PerformTab(
     val stickyInv by prefs.chordInvSticky.collectAsState(initial = ChordInversion.NONE)
     val zoom by prefs.pianoZoom.collectAsState(initial = 1.0f)
     val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
-    val initialScrollX by prefs.pianoScrollX.collectAsState(initial = -1)
 
-    // One ScrollState shared by every keyboard panel in the active layout.
-    // We seed it once from DataStore (initialScrollX flips from -1 to the
-    // persisted value), then write back debounced changes via snapshotFlow.
-    val pianoScrollState = remember { ScrollState(0) }
-    LaunchedEffect(initialScrollX) {
-        if (initialScrollX >= 0 && pianoScrollState.value == 0) {
-            pianoScrollState.scrollTo(initialScrollX)
+    // One ScrollState per keyboard / modifier panel keyed by the panel's
+    // stable UUID. Each state is seeded once from DataStore and writes back
+    // its own debounced position so panels never share scroll.
+    val keyboardScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
+    val modifierScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
+
+    LaunchedEffect(keyboardLayout) {
+        val keyboardIds = keyboardLayout.panels.map { it.id }.toSet()
+        val modifierIds = keyboardLayout.modifiers.map { it.id }.toSet()
+        keyboardScrollStates.keys.retainAll(keyboardIds)
+        modifierScrollStates.keys.retainAll(modifierIds)
+        for (id in keyboardIds) {
+            if (id !in keyboardScrollStates) {
+                val seed = prefs.pianoScrollX(id).first().coerceAtLeast(0)
+                keyboardScrollStates[id] = ScrollState(seed)
+            }
+        }
+        for (id in modifierIds) {
+            if (id !in modifierScrollStates) {
+                val seed = prefs.modifierScrollY(id).first().coerceAtLeast(0)
+                modifierScrollStates[id] = ScrollState(seed)
+            }
+        }
+        prefs.pruneScrollKeys(keepKeyboardIds = keyboardIds, keepPadIds = modifierIds)
+    }
+
+    // Persist each panel's scroll position independently. Re-launches on
+    // layout change because the state map's identity changes when entries
+    // are added or removed.
+    val keyboardStatesSnapshot = keyboardScrollStates.toMap()
+    keyboardStatesSnapshot.forEach { (id, state) ->
+        LaunchedEffect(id, state) {
+            snapshotFlow { state.value }
+                .drop(1)
+                .distinctUntilChanged()
+                .debounce(200)
+                .collect { px -> prefs.setPianoScrollX(id, px) }
         }
     }
-    LaunchedEffect(pianoScrollState) {
-        snapshotFlow { pianoScrollState.value }
-            .drop(1)               // ignore the seeded initial value
-            .distinctUntilChanged()
-            .debounce(200)         // coalesce rapid scroll updates
-            .collect { px -> prefs.setPianoScrollX(px) }
+    val modifierStatesSnapshot = modifierScrollStates.toMap()
+    modifierStatesSnapshot.forEach { (id, state) ->
+        LaunchedEffect(id, state) {
+            snapshotFlow { state.value }
+                .drop(1)
+                .distinctUntilChanged()
+                .debounce(200)
+                .collect { px -> prefs.setModifierScrollY(id, px) }
+        }
+    }
+
+    // Stable per-id lookups passed down to KeyboardLayoutHost/PerformModifierStrip.
+    // If a panel's state hasn't been seeded yet (first frame after a layout
+    // swap) we hand back a transient ScrollState(0) so child composables
+    // never see a null; the persisted seed will replace it next composition.
+    val pianoScrollFor: (String) -> ScrollState = { id ->
+        keyboardScrollStates.getOrPut(id) { ScrollState(0) }
+    }
+    val modifierScrollFor: (String) -> ScrollState = { id ->
+        modifierScrollStates.getOrPut(id) { ScrollState(0) }
     }
 
     // Held (momentary) modifiers live only in memory; releasing the
@@ -97,7 +141,7 @@ fun PerformTab(
         zoom = zoom,
         onNoteOn = onPianoNoteOn,
         onNoteOff = onPianoNoteOff,
-        pianoScrollState = pianoScrollState,
+        pianoScrollFor = pianoScrollFor,
         modifier = modifier.fillMaxSize(),
         modifierContent = { modPanel ->
             PerformModifierStrip(
@@ -111,6 +155,7 @@ fun PerformTab(
                 showLock = modPanel.showLock,
                 showShift = modPanel.showShift,
                 showZoom = modPanel.showZoom,
+                verticalScrollState = modifierScrollFor(modPanel.id),
                 onStickyToggle = { q ->
                     val next = if (q in sticky) sticky - q else sticky + q
                     scope.launch { prefs.setChordModSticky(next) }

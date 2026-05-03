@@ -45,6 +45,9 @@ class SynthController(private val engine: NativeSynth) {
     private val _adsr = MutableStateFlow(Adsr())
     val adsr: StateFlow<Adsr> = _adsr.asStateFlow()
 
+    private val _envelopeShape = MutableStateFlow(EnvelopeShape.fromAdsr(_adsr.value))
+    val envelopeShape: StateFlow<EnvelopeShape> = _envelopeShape.asStateFlow()
+
     private val _masterAmp = MutableStateFlow(0.7f)
     val masterAmp: StateFlow<Float> = _masterAmp.asStateFlow()
 
@@ -87,10 +90,10 @@ class SynthController(private val engine: NativeSynth) {
         if (engine.start()) {
             _started.value = true
             engine.setWaveform(_waveform.value)
-            with(_adsr.value) {
-                engine.setAdsr(attackSec, decaySec, sustain, releaseSec)
-                engine.setEnvelopeCurve(curve)
-            }
+            // Push the full envelope shape (covers both canonical ADSR
+            // and any non-canonical shape captured from the editor) so a
+            // stop/start cycle never silently resets to canonical.
+            pushEnvelopeShapeToEngine(_envelopeShape.value)
             engine.setMasterAmp(_masterAmp.value)
             with(_filter.value) { engine.setFilter(cutoffHz, resonance) }
             with(_voiceShaping.value) {
@@ -102,6 +105,17 @@ class SynthController(private val engine: NativeSynth) {
             engine.setMaxPolyphony(_maxPolyphony.value)
             engine.setDrive(_drive.value)
         }
+    }
+
+    private fun pushEnvelopeShapeToEngine(shape: EnvelopeShape) {
+        if (shape.vertices.isEmpty()) return
+        val flat = FloatArray(shape.vertices.size * 3)
+        shape.vertices.forEachIndexed { i, v ->
+            flat[i * 3 + 0] = v.timeSec
+            flat[i * 3 + 1] = v.level
+            flat[i * 3 + 2] = v.curve
+        }
+        engine.setEnvelopeShape(flat, shape.sustainIndex)
     }
 
     fun stop() {
@@ -168,8 +182,34 @@ class SynthController(private val engine: NativeSynth) {
             curve = curve.coerceIn(-1f, 1f),
         )
         _adsr.value = safe
+        _envelopeShape.value = EnvelopeShape.fromAdsr(safe)
         engine.setAdsr(safe.attackSec, safe.decaySec, safe.sustain, safe.releaseSec)
         engine.setEnvelopeCurve(safe.curve)
+    }
+
+    /**
+     * Set a multi-segment envelope shape. The full shape is pushed to
+     * the C++ engine (which interpolates between vertices and holds
+     * the sustain pin) and the closest-fit Adsr projection is stored
+     * back into [_adsr] so legacy preset / slider code paths see a
+     * coherent ADSR view of the same envelope.
+     */
+    fun setEnvelopeShape(shape: EnvelopeShape) {
+        if (shape.vertices.isEmpty()) return
+        val safeVertices = shape.vertices
+            .take(EnvelopeShape.MAX_VERTICES)
+            .map { v ->
+                EnvelopeVertex(
+                    timeSec = v.timeSec.coerceIn(0f, 5f),
+                    level = v.level.coerceIn(0f, 1f),
+                    curve = v.curve.coerceIn(-1f, 1f),
+                )
+            }
+        val safeSustain = shape.sustainIndex.coerceIn(0, safeVertices.lastIndex)
+        val safe = EnvelopeShape(safeVertices, safeSustain)
+        _envelopeShape.value = safe
+        _adsr.value = safe.toAdsr()
+        pushEnvelopeShapeToEngine(safe)
     }
 
     fun setMasterAmp(a: Float) {

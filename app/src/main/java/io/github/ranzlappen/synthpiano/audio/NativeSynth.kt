@@ -53,6 +53,16 @@ class NativeSynth {
     fun setEnvelopeCurve(curve: Float) =
         nativeSetEnvelopeCurve(handle, curve.coerceIn(-1f, 1f))
 
+    /**
+     * Push a multi-segment envelope shape down to the engine. Vertices is a
+     * flat (timeSec, level, curve) triple per breakpoint; sustainIndex picks
+     * the held vertex. The native side validates and clamps before
+     * publishing under a SeqLock so the audio thread always sees a coherent
+     * snapshot.
+     */
+    fun setEnvelopeShape(vertices: FloatArray, sustainIndex: Int) =
+        nativeSetEnvelopeShape(handle, vertices, sustainIndex)
+
     fun setFilter(cutoffHz: Float, resonance: Float) =
         nativeSetFilter(handle, cutoffHz.coerceIn(20f, 20000f), resonance.coerceIn(0f, 1f))
 
@@ -130,6 +140,7 @@ class NativeSynth {
     private external fun nativeSetMasterAmp(handle: Long, amp: Float)
 
     private external fun nativeSetEnvelopeCurve(handle: Long, curve: Float)
+    private external fun nativeSetEnvelopeShape(handle: Long, vertices: FloatArray, sustainIndex: Int)
     private external fun nativeSetFilter(handle: Long, cutoffHz: Float, resonance: Float)
     private external fun nativeSetVelocitySensitivity(handle: Long, v: Float)
     private external fun nativeSetGlideSec(handle: Long, s: Float)

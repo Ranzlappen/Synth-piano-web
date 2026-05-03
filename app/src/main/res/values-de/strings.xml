@@ -251,4 +251,8 @@
     <string name="onboarding_layout_body">Das Standard-Tastenlayout passt nicht auf jedes Gerät. Möchtest du das Layout jetzt anpassen? Du kannst es später jederzeit unter „Einrichten“ ändern.</string>
     <string name="onboarding_layout_customize">Jetzt anpassen</string>
     <string name="onboarding_layout_later">Später</string>
+
+    <!-- Envelope editor info popup -->
+    <string name="info_envelope_editor_title">Hüllkurven-Editor</string>
+    <string name="info_envelope_editor_body">Ziehe einen beliebigen Punkt nach links/rechts (Zeit) oder oben/unten (Pegel). Tippe auf eine leere Stelle der Linie, um einen neuen Punkt einzufügen. Halte einen Punkt gedrückt, um ihn zu entfernen. Der gestrichelte Kreis markiert den Sustain-Punkt — sein Pegel wird gehalten, solange eine Taste gedrückt ist.</string>
 </resources>

@@ -49,13 +49,7 @@ void Voice::noteOff(const AdsrParams& adsr) {
 
 void Voice::hardKill() {
     midiNote_ = -1;
-    AdsrParams zero;
-    zero.attack.store(0.0f);
-    zero.decay.store(0.0f);
-    zero.sustain.store(0.0f);
-    zero.release.store(0.0f);
-    envelope_.noteOff(zero);
-    envelope_.tick(zero);
+    envelope_.hardKill();
 }
 
 void Voice::renderAdd(float* out, int32_t numFrames, const AdsrParams& adsr,
