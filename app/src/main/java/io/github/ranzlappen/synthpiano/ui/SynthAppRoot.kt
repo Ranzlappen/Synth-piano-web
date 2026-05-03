@@ -25,10 +25,12 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.foundation.ScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -90,6 +92,12 @@ fun SynthAppRoot(
     val scoreState = remember { AppScoreState(ctx, prefs) }
     LaunchedEffect(Unit) { scoreState.loadFromPrefs() }
 
+    // Per-panel scroll states held at the app root so they survive
+    // Perform <-> other tab switches in-process. PerformTab seeds them
+    // from DataStore on first visit and writes back debounced.
+    val keyboardScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
+    val modifierScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
+
     val masterAmp by synth.masterAmp.collectAsState()
     val midiDevices by midi.connectedDeviceNames.collectAsState()
 
@@ -145,7 +153,12 @@ fun SynthAppRoot(
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                 ) {
                     when (tab) {
-                        Tab.Perform -> PerformTab(synth = synth, prefs = prefs)
+                        Tab.Perform -> PerformTab(
+                            synth = synth,
+                            prefs = prefs,
+                            keyboardScrollStates = keyboardScrollStates,
+                            modifierScrollStates = modifierScrollStates,
+                        )
                         Tab.Sound -> SoundTab(synth = synth, prefs = prefs, presets = presets)
                         Tab.Compose -> ComposerTab(synth = synth, prefs = prefs, scoreState = scoreState)
                         Tab.Setup -> SetupTab(

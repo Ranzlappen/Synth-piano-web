@@ -71,13 +71,18 @@ fun PerformModifierStrip(
             // pill-height floor. When the pad is roomy, AdaptivePillGrid
             // sees an effectively unbounded height and pins pills to 64 dp;
             // the column is still shorter than the parent so no scroll.
+            // A row with no qualities AND no inversions has nothing to show;
+            // hide the entire row container so it doesn't reserve vertical
+            // space. `showLock`/`showShift` remain the coarse-grained
+            // toggles; deselecting all chips is the finer-grained equivalent.
+            val hasPills = qualities.isNotEmpty() || inversions.isNotEmpty()
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(verticalScrollState),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                if (showLock) {
+                if (showLock && hasPills) {
                     ChordModifierRow(
                         variant = PillVariant.Sticky,
                         qualities = qualities,
@@ -91,7 +96,7 @@ fun PerformModifierStrip(
                         onInversionToggle = onStickyInvToggle,
                     )
                 }
-                if (showShift) {
+                if (showShift && hasPills) {
                     ChordModifierRow(
                         variant = PillVariant.Momentary,
                         qualities = qualities,
