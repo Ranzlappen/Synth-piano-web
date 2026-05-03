@@ -1,7 +1,9 @@
 package io.github.ranzlappen.synthpiano.ui.play
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -9,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
@@ -18,6 +21,10 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.applyInversion
 import io.github.ranzlappen.synthpiano.data.buildChordIntervals
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 /**
@@ -26,6 +33,7 @@ import kotlinx.coroutines.launch
  * by the active [io.github.ranzlappen.synthpiano.data.KeyboardLayout],
  * editable from Settings → Keyboard Layout.
  */
+@OptIn(FlowPreview::class)
 @Composable
 fun PerformTab(
     synth: SynthController,
@@ -39,6 +47,24 @@ fun PerformTab(
     val stickyInv by prefs.chordInvSticky.collectAsState(initial = ChordInversion.NONE)
     val zoom by prefs.pianoZoom.collectAsState(initial = 1.0f)
     val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
+    val initialScrollX by prefs.pianoScrollX.collectAsState(initial = -1)
+
+    // One ScrollState shared by every keyboard panel in the active layout.
+    // We seed it once from DataStore (initialScrollX flips from -1 to the
+    // persisted value), then write back debounced changes via snapshotFlow.
+    val pianoScrollState = remember { ScrollState(0) }
+    LaunchedEffect(initialScrollX) {
+        if (initialScrollX >= 0 && pianoScrollState.value == 0) {
+            pianoScrollState.scrollTo(initialScrollX)
+        }
+    }
+    LaunchedEffect(pianoScrollState) {
+        snapshotFlow { pianoScrollState.value }
+            .drop(1)               // ignore the seeded initial value
+            .distinctUntilChanged()
+            .debounce(200)         // coalesce rapid scroll updates
+            .collect { px -> prefs.setPianoScrollX(px) }
+    }
 
     // Held (momentary) modifiers live only in memory; releasing the
     // SHIFT button or app exit clears them.
@@ -71,6 +97,7 @@ fun PerformTab(
         zoom = zoom,
         onNoteOn = onPianoNoteOn,
         onNoteOff = onPianoNoteOff,
+        pianoScrollState = pianoScrollState,
         modifier = modifier.fillMaxSize(),
         modifierContent = { modPanel ->
             PerformModifierStrip(

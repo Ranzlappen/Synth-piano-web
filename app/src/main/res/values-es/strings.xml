@@ -61,6 +61,10 @@
     <string name="score_zoom_in">Acercar</string>
     <string name="score_zoom_out">Alejar</string>
 
+    <!-- Leyenda de la barra de modificadores -->
+    <string name="modifier_legend_sticky">Fijo</string>
+    <string name="modifier_legend_momentary">Mantener</string>
+
     <!-- Settings -->
     <string name="settings_audio">Audio</string>
     <string name="settings_keyboard">Teclado físico</string>

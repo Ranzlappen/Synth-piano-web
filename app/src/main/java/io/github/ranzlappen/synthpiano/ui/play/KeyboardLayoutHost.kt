@@ -1,11 +1,11 @@
 package io.github.ranzlappen.synthpiano.ui.play
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -36,6 +36,7 @@ fun KeyboardLayoutHost(
     onNoteOn: (Int) -> Unit,
     onNoteOff: (Int) -> Unit,
     modifierContent: @Composable (ModifierPanel) -> Unit,
+    pianoScrollState: ScrollState,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier) {
@@ -53,10 +54,9 @@ fun KeyboardLayoutHost(
                 containerW = cw,
                 containerH = ch,
             ) {
-                val scrollState = rememberScrollState()
                 PianoKeyboard(
                     modifier = Modifier.fillMaxSize(),
-                    scrollState = scrollState,
+                    scrollState = pianoScrollState,
                     heldBySource = heldBySource,
                     zoom = zoom,
                     onNoteOn = onNoteOn,

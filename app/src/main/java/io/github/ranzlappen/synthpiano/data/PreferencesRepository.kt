@@ -42,6 +42,7 @@ private object Keys {
     val CHORD_MOD_STICKY = stringPreferencesKey("chord_mod_sticky")
     val CHORD_INV_STICKY = stringPreferencesKey("chord_inv_sticky")
     val PIANO_ZOOM = floatPreferencesKey("piano_zoom")
+    val PIANO_SCROLL_X = intPreferencesKey("piano_scroll_x")
     val COMPOSER_EDITOR_W = floatPreferencesKey("composer_editor_weight")
     val COMPOSER_EDITOR_H = floatPreferencesKey("composer_editor_height")
     val KEYBOARD_LAYOUT_JSON = stringPreferencesKey("keyboard_layout_json")
@@ -133,6 +134,10 @@ class PreferencesRepository(private val context: Context) {
     val pianoZoom: Flow<Float> =
         context.dataStore.data.map { (it[Keys.PIANO_ZOOM] ?: 1.0f).coerceIn(0.1f, 2.0f) }
 
+    /** Piano keyboard horizontal scroll offset in px; restored across sessions. */
+    val pianoScrollX: Flow<Int> =
+        context.dataStore.data.map { (it[Keys.PIANO_SCROLL_X] ?: 0).coerceAtLeast(0) }
+
     /** Composer editor pane weight in side-by-side layout (>=900dp). */
     val composerEditorWeight: Flow<Float> =
         context.dataStore.data.map { (it[Keys.COMPOSER_EDITOR_W] ?: 0.667f).coerceIn(0.2f, 0.85f) }
@@ -213,6 +218,9 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setPianoZoom(z: Float) =
         edit { it[Keys.PIANO_ZOOM] = z.coerceIn(0.1f, 2.0f) }
 
+    suspend fun setPianoScrollX(px: Int) =
+        edit { it[Keys.PIANO_SCROLL_X] = px.coerceAtLeast(0) }
+
     suspend fun setComposerEditorWeight(w: Float) =
         edit { it[Keys.COMPOSER_EDITOR_W] = w.coerceIn(0.2f, 0.85f) }
 
@@ -258,6 +266,7 @@ class PreferencesRepository(private val context: Context) {
         Keys.OCTAVE, Keys.KEYBOARD_LEFT_C, Keys.KEYMAP_JSON,
         Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT,
         Keys.CHORD_MOD_STICKY, Keys.CHORD_INV_STICKY, Keys.PIANO_ZOOM,
+        Keys.PIANO_SCROLL_X,
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
         Keys.KEYBOARD_LAYOUT_JSON, Keys.USER_LAYOUTS_JSON,
         Keys.HAS_SEEN_LAYOUT_ONBOARDING, Keys.LANGUAGE_TAG,

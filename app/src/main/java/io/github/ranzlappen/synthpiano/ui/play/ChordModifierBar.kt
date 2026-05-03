@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,18 +18,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.ranzlappen.synthpiano.data.ChordInversion
 import io.github.ranzlappen.synthpiano.data.ChordQuality
 
 /**
- * One row of chord-modifier buttons. Two flavours, controlled by
- * [momentary]:
+ * Visual category of a modifier row. Replaces the old "LOCK"/"SHIFT" text
+ * labels with a colour the row's pills inherit, so the affordance is
+ * communicated by hue rather than a redundant English word that needed
+ * translating.
  *
- *   * **Sticky (LOCK)** — tap to toggle a quality on/off. Selection
+ *   * [Sticky]    — tap-to-toggle (was "LOCK")
+ *   * [Momentary] — active only while held (was "SHIFT")
+ */
+enum class PillVariant { Sticky, Momentary }
+
+/**
+ * One row of chord-modifier buttons. Two flavours, controlled by [variant]:
+ *
+ *   * [PillVariant.Sticky]    — tap to toggle a quality on/off. Selection
  *     persists. [onToggle] is invoked with the tapped quality.
- *   * **Momentary (SHIFT)** — quality is active only while the button is
+ *   * [PillVariant.Momentary] — quality is active only while the button is
  *     pressed. [onPress] fires on finger-down, [onRelease] on lift /
  *     gesture cancellation.
  *
@@ -38,15 +52,15 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
  * inversion can be active per row; tapping the active one clears it.
  *
  * Pills are laid out in an adaptive grid: the column count is computed
- * from the available width so pills always **fill the row width** with
- * `weight(1f)`. Rows wrap only when the available width can't fit all
- * pills at the minimum target width — eliminating the wide blank band
- * that the old `FlowRow + fixed 56dp pill` approach left when the strip
- * was wide-and-short.
+ * from the available width so pills always fill the row width with
+ * `weight(1f)`, and pill height is computed from the row's allotted
+ * vertical space ÷ chunk count. Caller controls allotted height via
+ * the passed [modifier] (typically `Modifier.weight(1f)` inside a
+ * `Column`), so the row never needs an inner scroll.
  */
 @Composable
 fun ChordModifierRow(
-    label: String,
+    variant: PillVariant,
     qualities: List<ChordQuality>,
     selected: Set<ChordQuality>,
     inversion: ChordInversion,
@@ -55,7 +69,6 @@ fun ChordModifierRow(
         ChordInversion.SECOND,
         ChordInversion.THIRD,
     ),
-    momentary: Boolean = false,
     onToggle: ((ChordQuality) -> Unit)? = null,
     onPress: ((ChordQuality) -> Unit)? = null,
     onRelease: ((ChordQuality) -> Unit)? = null,
@@ -64,32 +77,20 @@ fun ChordModifierRow(
     onInversionRelease: ((ChordInversion) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    AdaptivePillGrid(
+        variant = variant,
+        qualities = qualities,
+        inversions = inversions,
+        selected = selected,
+        inversion = inversion,
+        onToggle = onToggle,
+        onPress = onPress,
+        onRelease = onRelease,
+        onInversionToggle = onInversionToggle,
+        onInversionPress = onInversionPress,
+        onInversionRelease = onInversionRelease,
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(40.dp),
-        )
-        AdaptivePillGrid(
-            qualities = qualities,
-            inversions = inversions,
-            selected = selected,
-            inversion = inversion,
-            momentary = momentary,
-            onToggle = onToggle,
-            onPress = onPress,
-            onRelease = onRelease,
-            onInversionToggle = onInversionToggle,
-            onInversionPress = onInversionPress,
-            onInversionRelease = onInversionRelease,
-            modifier = Modifier.weight(1f),
-        )
-    }
+    )
 }
 
 private sealed interface PillData {
@@ -99,11 +100,11 @@ private sealed interface PillData {
 
 @Composable
 private fun AdaptivePillGrid(
+    variant: PillVariant,
     qualities: List<ChordQuality>,
     inversions: List<ChordInversion>,
     selected: Set<ChordQuality>,
     inversion: ChordInversion,
-    momentary: Boolean,
     onToggle: ((ChordQuality) -> Unit)?,
     onPress: ((ChordQuality) -> Unit)?,
     onRelease: ((ChordQuality) -> Unit)?,
@@ -117,14 +118,18 @@ private fun AdaptivePillGrid(
     if (items.isEmpty()) return
 
     BoxWithConstraints(modifier = modifier) {
-        val gap = 6.dp
-        val targetMinWidth = 56.dp
-        // (W + g) / (target + g) ≈ how many target-width pills fit, accounting
-        // for inter-pill gaps. Coerce against actual item count so we don't
-        // create empty trailing columns when the strip is very wide.
+        val gap = 4.dp
+        val targetMinWidth = 48.dp
         val columns = ((maxWidth + gap) / (targetMinWidth + gap))
             .toInt()
             .coerceIn(1, items.size)
+        val chunks = (items.size + columns - 1) / columns
+        // Compute pill height from the row's actual allotted space so each
+        // row scales to the container instead of forcing an outer scroll.
+        // 28 dp floor keeps pills tappable; 64 dp ceiling avoids absurdly
+        // tall pills when only a single chunk renders into a tall container.
+        val pillHeight = ((maxHeight - gap * (chunks - 1).coerceAtLeast(0)) / chunks)
+            .coerceIn(28.dp, 64.dp)
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -138,12 +143,12 @@ private fun AdaptivePillGrid(
                     rowItems.forEach { item ->
                         val pillModifier = Modifier
                             .weight(1f)
-                            .height(40.dp)
+                            .height(pillHeight)
                         when (item) {
                             is PillData.Quality -> ChordPillButton(
                                 text = item.q.label(),
                                 selected = item.q in selected,
-                                momentary = momentary,
+                                variant = variant,
                                 modifier = pillModifier,
                                 onToggle = { onToggle?.invoke(item.q) },
                                 onPress = { onPress?.invoke(item.q) },
@@ -152,7 +157,7 @@ private fun AdaptivePillGrid(
                             is PillData.Inversion -> ChordPillButton(
                                 text = item.inv.label(),
                                 selected = inversion == item.inv,
-                                momentary = momentary,
+                                variant = variant,
                                 modifier = pillModifier,
                                 onToggle = { onInversionToggle?.invoke(item.inv) },
                                 onPress = { onInversionPress?.invoke(item.inv) },
@@ -170,22 +175,35 @@ private fun AdaptivePillGrid(
     }
 }
 
+/** M3 colour pair for a [PillVariant], picked once per call so the active
+ *  and inactive states stay theme-coherent. */
+@Composable
+internal fun pillColors(variant: PillVariant, selected: Boolean): Pair<Color, Color> {
+    val cs = MaterialTheme.colorScheme
+    return when (variant) {
+        PillVariant.Sticky ->
+            if (selected) cs.tertiaryContainer to cs.onTertiaryContainer
+            else cs.surfaceVariant.copy(alpha = 0.55f) to cs.onSurfaceVariant
+        PillVariant.Momentary ->
+            if (selected) cs.secondaryContainer to cs.onSecondaryContainer
+            else cs.surfaceVariant.copy(alpha = 0.55f) to cs.onSurfaceVariant
+    }
+}
+
 @Composable
 private fun ChordPillButton(
     text: String,
     selected: Boolean,
-    momentary: Boolean,
+    variant: PillVariant,
     onToggle: () -> Unit,
     onPress: () -> Unit,
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary
-             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
-    val fg = if (selected) MaterialTheme.colorScheme.onPrimary
-             else MaterialTheme.colorScheme.onSurface
+    val (bg, fg) = pillColors(variant, selected)
+    val momentary = variant == PillVariant.Momentary
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
@@ -207,10 +225,65 @@ private fun ChordPillButton(
             },
         contentAlignment = Alignment.Center,
     ) {
+        // Auto-scale the label so long glyphs (sus2/sus4/aug, inversion arrows)
+        // shrink instead of clipping when the pill is tight. Floor at 9.sp so
+        // text stays legible; ceil at 14.sp so it never feels oversized.
+        val target = (maxHeight.value * 0.42f).coerceIn(9f, 14f).sp
         Text(
             text = text,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = target),
             color = fg,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Visible,
+        )
+    }
+}
+
+/** Two-dot legend explaining the colour code, intended for the top of the
+ *  modifier strip so users don't have to memorise the variant mapping. */
+@Composable
+fun PillVariantLegend(
+    stickyLabel: String,
+    momentaryLabel: String,
+    fontSize: TextUnit = 10.sp,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        LegendDot(
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            label = stickyLabel,
+            fontSize = fontSize,
+        )
+        LegendDot(
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            label = momentaryLabel,
+            fontSize = fontSize,
+        )
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color, label: String, fontSize: TextUnit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(color),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }
