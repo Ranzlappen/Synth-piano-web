@@ -47,8 +47,8 @@ fun InfoSlider(
     valueFormatter: (Float) -> String,
     modifier: Modifier = Modifier,
     info: InfoCopy? = null,
-    labelWidth: androidx.compose.ui.unit.Dp = 72.dp,
-    valueWidth: androidx.compose.ui.unit.Dp = 64.dp,
+    labelWidth: androidx.compose.ui.unit.Dp = 64.dp,
+    valueWidth: androidx.compose.ui.unit.Dp = 52.dp,
 ) {
     var infoOpen by remember { mutableStateOf(false) }
 

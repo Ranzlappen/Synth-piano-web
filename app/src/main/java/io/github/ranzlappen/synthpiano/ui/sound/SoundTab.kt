@@ -109,13 +109,31 @@ fun SoundTab(
         scope.launch { prefs.setAdvancedExpanded(id, id !in advExpanded) }
     }
 
+    // Three layout tiers:
+    //   tablet (≥ 900 dp): 3-column grid, two rows; everything visible.
+    //   mid    (600..899): 2-column grid + full-width scope underneath.
+    //                       With the basic/advanced split collapsed by
+    //                       default this fits a landscape phone without
+    //                       a scroll.
+    //   narrow (< 600):    single column; vertical scroll as a last
+    //                       resort because sliders are bottom-floored
+    //                       around 60-80 dp regardless.
     val widthDp = LocalConfiguration.current.screenWidthDp
-    val wide = widthDp >= 900
+    val tier = when {
+        widthDp >= 900 -> SoundLayoutTier.Tablet
+        widthDp >= 600 -> SoundLayoutTier.Mid
+        else -> SoundLayoutTier.Narrow
+    }
+
+    val outer: Modifier = when (tier) {
+        SoundLayoutTier.Narrow -> modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+        else -> modifier.fillMaxSize()
+    }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+        modifier = outer,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PresetCard(
@@ -126,86 +144,34 @@ fun SoundTab(
             modifier = Modifier.fillMaxWidth().wrapContentHeight(),
         )
 
-        if (wide) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OscillatorCard(
-                    waveform = waveform,
-                    onSelect = synth::setWaveform,
-                    modifier = Modifier.weight(1f),
-                )
-                EnvelopeCard(
-                    adsr = adsr,
-                    onAdsr = {
-                        synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve)
-                    },
-                    advancedExpanded = "envelope" in advExpanded,
-                    onAdvancedToggle = { onToggleAdvanced("envelope") },
-                    modifier = Modifier.weight(1.5f),
-                )
-                OscilloscopeCard(
-                    synth = synth,
-                    modifier = Modifier.weight(1.2f).height(280.dp),
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                FilterCard(
-                    filter = filter,
-                    onFilter = { synth.setFilter(it.cutoffHz, it.resonance) },
-                    advancedExpanded = "filter" in advExpanded,
-                    onAdvancedToggle = { onToggleAdvanced("filter") },
-                    modifier = Modifier.weight(1f),
-                )
-                VoiceShapingCard(
-                    voice = voice,
-                    polyComp = polyComp,
-                    headroom = headroom,
-                    maxPolyphony = maxPolyphony,
-                    drive = drive,
-                    onVoice = { v ->
-                        synth.setVelocitySensitivity(v.velocitySensitivity)
-                        synth.setGlideSec(v.glideSec)
-                    },
-                    onPolyComp = synth::setPolyCompensation,
-                    onHeadroom = synth::setHeadroom,
-                    onMaxPolyphony = synth::setMaxPolyphony,
-                    onDrive = synth::setDrive,
-                    advancedExpanded = "voice" in advExpanded,
-                    onAdvancedToggle = { onToggleAdvanced("voice") },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        } else {
+        // Card rendering helpers — captured here so each tier just composes
+        // them into the right grid without repeating the call sites.
+        val osc: @Composable (Modifier) -> Unit = { m ->
             OscillatorCard(
                 waveform = waveform,
                 onSelect = synth::setWaveform,
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                modifier = m,
             )
+        }
+        val env: @Composable (Modifier) -> Unit = { m ->
             EnvelopeCard(
                 adsr = adsr,
-                onAdsr = {
-                    synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve)
-                },
+                onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve) },
                 advancedExpanded = "envelope" in advExpanded,
                 onAdvancedToggle = { onToggleAdvanced("envelope") },
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                modifier = m,
             )
-            OscilloscopeCard(
-                synth = synth,
-                modifier = Modifier.fillMaxWidth().height(220.dp),
-            )
+        }
+        val flt: @Composable (Modifier) -> Unit = { m ->
             FilterCard(
                 filter = filter,
                 onFilter = { synth.setFilter(it.cutoffHz, it.resonance) },
                 advancedExpanded = "filter" in advExpanded,
                 onAdvancedToggle = { onToggleAdvanced("filter") },
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                modifier = m,
             )
+        }
+        val voc: @Composable (Modifier) -> Unit = { m ->
             VoiceShapingCard(
                 voice = voice,
                 polyComp = polyComp,
@@ -222,11 +188,60 @@ fun SoundTab(
                 onDrive = synth::setDrive,
                 advancedExpanded = "voice" in advExpanded,
                 onAdvancedToggle = { onToggleAdvanced("voice") },
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                modifier = m,
             )
+        }
+        val scopeCard: @Composable (Modifier) -> Unit = { m ->
+            OscilloscopeCard(synth = synth, modifier = m)
+        }
+
+        when (tier) {
+            SoundLayoutTier.Tablet -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    osc(Modifier.weight(1f))
+                    env(Modifier.weight(1.5f))
+                    scopeCard(Modifier.weight(1.2f).height(280.dp))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    flt(Modifier.weight(1f))
+                    voc(Modifier.weight(1f))
+                }
+            }
+            SoundLayoutTier.Mid -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    osc(Modifier.weight(1f))
+                    env(Modifier.weight(1.5f))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    flt(Modifier.weight(1f))
+                    voc(Modifier.weight(1.5f))
+                }
+                scopeCard(Modifier.fillMaxWidth().height(140.dp))
+            }
+            SoundLayoutTier.Narrow -> {
+                osc(Modifier.fillMaxWidth().wrapContentHeight())
+                env(Modifier.fillMaxWidth().wrapContentHeight())
+                scopeCard(Modifier.fillMaxWidth().height(220.dp))
+                flt(Modifier.fillMaxWidth().wrapContentHeight())
+                voc(Modifier.fillMaxWidth().wrapContentHeight())
+            }
         }
     }
 }
+
+private enum class SoundLayoutTier { Tablet, Mid, Narrow }
 
 @Composable
 private fun PresetCard(
