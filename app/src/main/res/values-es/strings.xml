@@ -131,6 +131,11 @@
     <string name="action_save">Guardar</string>
     <string name="action_apply">Aplicar</string>
     <string name="action_rename">Renombrar</string>
+    <string name="action_info">Más información</string>
+    <string name="action_got_it">Entendido</string>
+
+    <!-- Pestaña Sound — sección avanzada plegable -->
+    <string name="sound_advanced">Avanzado</string>
 
     <!-- Keyboard layout editor -->
     <string name="editor_title">Editar disposición</string>

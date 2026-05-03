@@ -131,6 +131,11 @@
     <string name="action_save">Save</string>
     <string name="action_apply">Apply</string>
     <string name="action_rename">Rename</string>
+    <string name="action_info">More info</string>
+    <string name="action_got_it">Got it</string>
+
+    <!-- Sound tab — collapsible advanced section -->
+    <string name="sound_advanced">Advanced</string>
 
     <!-- Keyboard layout editor -->
     <string name="editor_title">Edit Layout</string>

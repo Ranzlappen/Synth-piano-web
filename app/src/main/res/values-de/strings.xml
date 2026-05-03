@@ -131,6 +131,11 @@
     <string name="action_save">Speichern</string>
     <string name="action_apply">Übernehmen</string>
     <string name="action_rename">Umbenennen</string>
+    <string name="action_info">Mehr Infos</string>
+    <string name="action_got_it">Verstanden</string>
+
+    <!-- Sound-Tab — ausklappbarer Erweitert-Bereich -->
+    <string name="sound_advanced">Erweitert</string>
 
     <!-- Keyboard layout editor -->
     <string name="editor_title">Layout bearbeiten</string>

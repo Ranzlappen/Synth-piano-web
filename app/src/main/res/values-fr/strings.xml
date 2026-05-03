@@ -131,6 +131,11 @@
     <string name="action_save">Enregistrer</string>
     <string name="action_apply">Appliquer</string>
     <string name="action_rename">Renommer</string>
+    <string name="action_info">Plus d\'infos</string>
+    <string name="action_got_it">Compris</string>
+
+    <!-- Onglet Son — section avancée repliable -->
+    <string name="sound_advanced">Avancé</string>
 
     <!-- Keyboard layout editor -->
     <string name="editor_title">Modifier la disposition</string>
