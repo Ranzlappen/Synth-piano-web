@@ -251,4 +251,8 @@
     <string name="onboarding_layout_body">La disposition de clavier par défaut peut ne pas convenir à tous les appareils. Souhaitez-vous la personnaliser maintenant ? Vous pouvez la modifier à tout moment dans Configurer.</string>
     <string name="onboarding_layout_customize">Personnaliser maintenant</string>
     <string name="onboarding_layout_later">Plus tard</string>
+
+    <!-- Envelope editor info popup -->
+    <string name="info_envelope_editor_title">Éditeur d\'enveloppe</string>
+    <string name="info_envelope_editor_body">Faites glisser un point horizontalement (temps) ou verticalement (niveau). Touchez une portion vide de la ligne pour insérer un point. Appuyez longuement sur un point pour le supprimer. Le cercle en pointillés marque le point de sustain — son niveau est tenu tant qu\'une touche est enfoncée.</string>
 </resources>
