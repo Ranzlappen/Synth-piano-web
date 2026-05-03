@@ -124,6 +124,7 @@ fun InfoIconButton(info: InfoCopy, modifier: Modifier = Modifier) {
 
 /**
  * Pair of string resource IDs identifying a slider's info-popup title
- * and body. Localized in `res/values*/strings.xml`.
+ * and body. Localized in res/values-LOCALE/strings.xml across all
+ * supported locales.
  */
 data class InfoCopy(val titleRes: Int, val bodyRes: Int)
