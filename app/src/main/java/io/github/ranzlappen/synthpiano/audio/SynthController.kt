@@ -45,6 +45,9 @@ class SynthController(private val engine: NativeSynth) {
     private val _adsr = MutableStateFlow(Adsr())
     val adsr: StateFlow<Adsr> = _adsr.asStateFlow()
 
+    private val _envelopeShape = MutableStateFlow(EnvelopeShape.fromAdsr(_adsr.value))
+    val envelopeShape: StateFlow<EnvelopeShape> = _envelopeShape.asStateFlow()
+
     private val _masterAmp = MutableStateFlow(0.7f)
     val masterAmp: StateFlow<Float> = _masterAmp.asStateFlow()
 
@@ -168,8 +171,37 @@ class SynthController(private val engine: NativeSynth) {
             curve = curve.coerceIn(-1f, 1f),
         )
         _adsr.value = safe
+        _envelopeShape.value = EnvelopeShape.fromAdsr(safe)
         engine.setAdsr(safe.attackSec, safe.decaySec, safe.sustain, safe.releaseSec)
         engine.setEnvelopeCurve(safe.curve)
+    }
+
+    /**
+     * Set a multi-segment envelope shape. While the C++ engine still
+     * speaks ADSR (replaced in a follow-up commit), the shape is
+     * projected onto the closest ADSR via [EnvelopeShape.toAdsr] before
+     * being pushed to the engine. The full shape is preserved on the
+     * Kotlin side via [envelopeShape] so the editor doesn't lose
+     * intermediate vertices on a round-trip.
+     */
+    fun setEnvelopeShape(shape: EnvelopeShape) {
+        if (shape.vertices.isEmpty()) return
+        val safeVertices = shape.vertices
+            .take(EnvelopeShape.MAX_VERTICES)
+            .map { v ->
+                EnvelopeVertex(
+                    timeSec = v.timeSec.coerceIn(0f, 5f),
+                    level = v.level.coerceIn(0f, 1f),
+                    curve = v.curve.coerceIn(-1f, 1f),
+                )
+            }
+        val safeSustain = shape.sustainIndex.coerceIn(0, safeVertices.lastIndex)
+        val safe = EnvelopeShape(safeVertices, safeSustain)
+        _envelopeShape.value = safe
+        val projected = safe.toAdsr()
+        _adsr.value = projected
+        engine.setAdsr(projected.attackSec, projected.decaySec, projected.sustain, projected.releaseSec)
+        engine.setEnvelopeCurve(projected.curve)
     }
 
     fun setMasterAmp(a: Float) {
