@@ -70,8 +70,8 @@ data class ModifierPanel(
             widthFraction = widthFraction.coerceIn(MIN_W, 1f),
             heightFraction = heightFraction.coerceIn(MIN_H, 1f),
             rotationDeg = ((rotationDeg % 360) + 360) % 360,
-            qualities = q.ifEmpty { ChordQuality.entries.toList() },
-            inversions = i.ifEmpty { DEFAULT_INVERSIONS },
+            qualities = q,
+            inversions = i,
         )
     }
 

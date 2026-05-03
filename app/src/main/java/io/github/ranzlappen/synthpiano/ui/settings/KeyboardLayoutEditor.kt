@@ -608,12 +608,8 @@ private fun ModifierPanelEditDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                // Preserve canonical declaration order; fall back to defaults
-                // when the user deselected every chip in a category.
                 val q = ChordQuality.entries.filter { it in selectedQualities }
-                    .ifEmpty { ChordQuality.entries.toList() }
                 val i = allInversions.filter { it in selectedInversions }
-                    .ifEmpty { ModifierPanel.DEFAULT_INVERSIONS }
                 onApply(
                     panel.copy(
                         showLock = showLock,
