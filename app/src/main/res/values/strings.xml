@@ -251,4 +251,8 @@
     <string name="onboarding_layout_body">The default keyboard layout may not fit every device. Want to customize the layout now? You can always change it later in Setup.</string>
     <string name="onboarding_layout_customize">Customize now</string>
     <string name="onboarding_layout_later">Maybe later</string>
+
+    <!-- Envelope editor info popup -->
+    <string name="info_envelope_editor_title">Envelope editor</string>
+    <string name="info_envelope_editor_body">Drag any vertex to move it in time (left/right) or level (up/down). Tap an empty stretch of the line to add a new vertex. Long-press a vertex to remove it. The dashed circle marks the sustain vertex — its level is held while a key is down.</string>
 </resources>
