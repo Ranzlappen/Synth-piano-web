@@ -1,6 +1,8 @@
 package io.github.ranzlappen.synthpiano.data
 
 import io.github.ranzlappen.synthpiano.audio.Adsr
+import io.github.ranzlappen.synthpiano.audio.EnvelopeShape
+import io.github.ranzlappen.synthpiano.audio.EnvelopeVertex
 import io.github.ranzlappen.synthpiano.audio.FilterSettings
 import io.github.ranzlappen.synthpiano.audio.VoiceShaping
 import io.github.ranzlappen.synthpiano.audio.Waveform
@@ -25,6 +27,15 @@ data class SoundPreset(
     val polyCompensation: Float = 1f,
     val drive: Float = 0f,
     val builtin: Boolean = false,
+    /**
+     * Multi-segment envelope shape captured by the interactive editor.
+     * When null the preset is purely ADSR and falls back to the
+     * (attack/decay/sustain/release/curve) fields above. Built-in
+     * presets stay on the legacy ADSR fields so the source remains
+     * compact; user presets created by the editor populate this.
+     */
+    val envelopeShape: List<EnvelopeVertex>? = null,
+    val envelopeSustainIndex: Int = 3,
 ) {
     fun adsr(): Adsr = Adsr(
         attackSec = attack,
@@ -33,6 +44,15 @@ data class SoundPreset(
         releaseSec = release,
         curve = curve,
     )
+
+    /**
+     * Resolved envelope. Prefers [envelopeShape] when present; otherwise
+     * builds the canonical 5-vertex ADSR shape from the legacy fields so
+     * old presets and code paths see one consistent type.
+     */
+    fun envelope(): EnvelopeShape =
+        envelopeShape?.let { EnvelopeShape(it, envelopeSustainIndex.coerceIn(0, it.lastIndex)) }
+            ?: EnvelopeShape.fromAdsr(adsr())
 
     fun filter(): FilterSettings = FilterSettings(cutoffHz = cutoffHz, resonance = resonance)
 

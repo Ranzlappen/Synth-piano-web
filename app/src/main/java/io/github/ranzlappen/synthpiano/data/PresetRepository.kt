@@ -49,11 +49,19 @@ class PresetRepository(private val prefs: PreferencesRepository) {
         if (prefs.lastPresetName.first() == name) prefs.setLastPresetName(null)
     }
 
-    /** Captures the current synth state into a [SoundPreset] of the given name. */
+    /**
+     * Captures the current synth state into a [SoundPreset]. If the live
+     * envelope shape is non-canonical (added vertices, custom sustain
+     * pin, etc.) it's persisted via the [SoundPreset.envelopeShape]
+     * field so the editor's full multi-segment work isn't lost on save.
+     * Canonical 5-vertex ADSR shapes leave the field null so user JSON
+     * stays compact for ordinary presets.
+     */
     fun snapshot(synth: SynthController, name: String): SoundPreset {
         val a = synth.adsr.value
         val f = synth.filter.value
         val v = synth.voiceShaping.value
+        val shape = synth.envelopeShape.value
         return SoundPreset(
             name = name,
             waveform = synth.waveform.value,
@@ -64,6 +72,8 @@ class PresetRepository(private val prefs: PreferencesRepository) {
             masterAmp = synth.masterAmp.value,
             polyCompensation = synth.polyComp.value,
             drive = synth.drive.value,
+            envelopeShape = if (shape.isCanonicalAdsr()) null else shape.vertices,
+            envelopeSustainIndex = shape.sustainIndex,
             builtin = false,
         )
     }
@@ -71,7 +81,13 @@ class PresetRepository(private val prefs: PreferencesRepository) {
     /** Push a preset into the synth and remember it as the last selection. */
     suspend fun apply(synth: SynthController, preset: SoundPreset) {
         synth.setWaveform(preset.waveform)
-        synth.setAdsr(preset.attack, preset.decay, preset.sustain, preset.release, preset.curve)
+        // Prefer the multi-segment shape when present; falls back to the
+        // legacy ADSR projection otherwise.
+        if (preset.envelopeShape != null) {
+            synth.setEnvelopeShape(preset.envelope())
+        } else {
+            synth.setAdsr(preset.attack, preset.decay, preset.sustain, preset.release, preset.curve)
+        }
         synth.setFilter(preset.cutoffHz, preset.resonance)
         synth.setVelocitySensitivity(preset.velocitySensitivity)
         synth.setGlideSec(preset.glideSec)
