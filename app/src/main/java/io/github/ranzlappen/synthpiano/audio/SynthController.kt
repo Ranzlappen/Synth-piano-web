@@ -90,10 +90,10 @@ class SynthController(private val engine: NativeSynth) {
         if (engine.start()) {
             _started.value = true
             engine.setWaveform(_waveform.value)
-            with(_adsr.value) {
-                engine.setAdsr(attackSec, decaySec, sustain, releaseSec)
-                engine.setEnvelopeCurve(curve)
-            }
+            // Push the full envelope shape (covers both canonical ADSR
+            // and any non-canonical shape captured from the editor) so a
+            // stop/start cycle never silently resets to canonical.
+            pushEnvelopeShapeToEngine(_envelopeShape.value)
             engine.setMasterAmp(_masterAmp.value)
             with(_filter.value) { engine.setFilter(cutoffHz, resonance) }
             with(_voiceShaping.value) {
@@ -105,6 +105,17 @@ class SynthController(private val engine: NativeSynth) {
             engine.setMaxPolyphony(_maxPolyphony.value)
             engine.setDrive(_drive.value)
         }
+    }
+
+    private fun pushEnvelopeShapeToEngine(shape: EnvelopeShape) {
+        if (shape.vertices.isEmpty()) return
+        val flat = FloatArray(shape.vertices.size * 3)
+        shape.vertices.forEachIndexed { i, v ->
+            flat[i * 3 + 0] = v.timeSec
+            flat[i * 3 + 1] = v.level
+            flat[i * 3 + 2] = v.curve
+        }
+        engine.setEnvelopeShape(flat, shape.sustainIndex)
     }
 
     fun stop() {
@@ -198,14 +209,7 @@ class SynthController(private val engine: NativeSynth) {
         val safe = EnvelopeShape(safeVertices, safeSustain)
         _envelopeShape.value = safe
         _adsr.value = safe.toAdsr()
-        // Flatten to (t, l, c) triples for the JNI bridge.
-        val flat = FloatArray(safeVertices.size * 3)
-        safeVertices.forEachIndexed { i, v ->
-            flat[i * 3 + 0] = v.timeSec
-            flat[i * 3 + 1] = v.level
-            flat[i * 3 + 2] = v.curve
-        }
-        engine.setEnvelopeShape(flat, safeSustain)
+        pushEnvelopeShapeToEngine(safe)
     }
 
     fun setMasterAmp(a: Float) {
