@@ -97,6 +97,7 @@ fun SynthAppRoot(
     // from DataStore on first visit and writes back debounced.
     val keyboardScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
     val modifierScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
+    val keyboardZoomStates = remember { mutableStateMapOf<String, Float>() }
 
     val masterAmp by synth.masterAmp.collectAsState()
     val midiDevices by midi.connectedDeviceNames.collectAsState()
@@ -158,6 +159,7 @@ fun SynthAppRoot(
                             prefs = prefs,
                             keyboardScrollStates = keyboardScrollStates,
                             modifierScrollStates = modifierScrollStates,
+                            keyboardZoomStates = keyboardZoomStates,
                         )
                         Tab.Sound -> SoundTab(synth = synth, prefs = prefs, presets = presets)
                         Tab.Compose -> ComposerTab(synth = synth, prefs = prefs, scoreState = scoreState)
