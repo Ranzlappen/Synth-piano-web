@@ -49,6 +49,7 @@ private object Keys {
     val USER_LAYOUTS_JSON = stringPreferencesKey("user_layouts_json")
     val HAS_SEEN_LAYOUT_ONBOARDING = booleanPreferencesKey("has_seen_layout_onboarding")
     val LANGUAGE_TAG = stringPreferencesKey("language_tag")
+    val ADVANCED_EXPANDED = stringPreferencesKey("advanced_expanded_csv")
 }
 
 /**
@@ -166,6 +167,16 @@ class PreferencesRepository(private val context: Context) {
     val languageTag: Flow<String?> =
         context.dataStore.data.map { it[Keys.LANGUAGE_TAG] }
 
+    /** Set of card IDs whose "Advanced" section the user has opted to expand. */
+    val advancedExpanded: Flow<Set<String>> =
+        context.dataStore.data.map { prefs ->
+            prefs[Keys.ADVANCED_EXPANDED]
+                ?.split(',')
+                ?.filter { it.isNotBlank() }
+                ?.toSet()
+                .orEmpty()
+        }
+
     suspend fun setWaveform(w: Waveform) =
         edit { it[Keys.WAVEFORM] = w.name }
 
@@ -243,6 +254,18 @@ class PreferencesRepository(private val context: Context) {
         if (tag.isNullOrBlank()) it.remove(Keys.LANGUAGE_TAG) else it[Keys.LANGUAGE_TAG] = tag
     }
 
+    /** Toggle one card's Advanced section persistence. */
+    suspend fun setAdvancedExpanded(cardId: String, expanded: Boolean) = edit { prefs ->
+        val current = prefs[Keys.ADVANCED_EXPANDED]
+            ?.split(',')
+            ?.filter { it.isNotBlank() }
+            ?.toMutableSet()
+            ?: mutableSetOf()
+        if (expanded) current.add(cardId) else current.remove(cardId)
+        if (current.isEmpty()) prefs.remove(Keys.ADVANCED_EXPANDED)
+        else prefs[Keys.ADVANCED_EXPANDED] = current.joinToString(",")
+    }
+
     /** Synchronous snapshot of the keymap JSON for non-suspending init paths. */
     fun blockingKeymapJson(): String? = runBlocking { keymapJson.first() }
 
@@ -270,5 +293,6 @@ class PreferencesRepository(private val context: Context) {
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
         Keys.KEYBOARD_LAYOUT_JSON, Keys.USER_LAYOUTS_JSON,
         Keys.HAS_SEEN_LAYOUT_ONBOARDING, Keys.LANGUAGE_TAG,
+        Keys.ADVANCED_EXPANDED,
     )
 }
