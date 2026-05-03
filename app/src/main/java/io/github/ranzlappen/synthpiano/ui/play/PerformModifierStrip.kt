@@ -26,12 +26,12 @@ import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 
 /**
  * The chord-modifier strip pinned to a layout panel: Sticky (was "LOCK")
- * and Momentary (was "SHIFT") chord-modifier rows plus zoom +/- buttons.
+ * and Momentary (was "SHIFT") chord-modifier rows.
  *
  * The two row variants are distinguished by an underline on Sticky pill
  * labels. Pill heights still scale to fill the available container
- * vertical space (AdaptivePillGrid clamps to 64 dp at most); when the
- * pad is smaller than the natural content height even at the 28 dp
+ * vertical space (AdaptivePillGrid clamps to 32 dp at most); when the
+ * pad is smaller than the natural content height even at the 14 dp
  * pill-height floor, the inner column scrolls vertically. Each pad has
  * its own [verticalScrollState] so two pads in one layout never share
  * scroll position.
@@ -91,7 +91,7 @@ fun PerformModifierStrip(
                         inversion = stickyInv,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 56.dp),
+                            .heightIn(min = 28.dp),
                         onToggle = onStickyToggle,
                         onInversionToggle = onStickyInvToggle,
                     )
@@ -105,7 +105,7 @@ fun PerformModifierStrip(
                         inversion = heldInv,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 56.dp),
+                            .heightIn(min = 28.dp),
                         onPress = onShiftPress,
                         onRelease = onShiftRelease,
                         onInversionPress = onShiftInvPress,
