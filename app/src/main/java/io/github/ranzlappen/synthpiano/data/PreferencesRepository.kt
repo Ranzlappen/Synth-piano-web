@@ -140,14 +140,6 @@ class PreferencesRepository(private val context: Context) {
     val pianoZoom: Flow<Float> =
         context.dataStore.data.map { (it[Keys.PIANO_ZOOM] ?: 1.0f).coerceIn(0.1f, 2.0f) }
 
-    /** Piano keyboard horizontal scroll offset in px; restored across sessions. */
-    @Deprecated(
-        "Use pianoScrollX(panelId). Kept for one transition; remove after C2 wiring lands.",
-        ReplaceWith("pianoScrollX(panelId)"),
-    )
-    val pianoScrollX: Flow<Int> =
-        context.dataStore.data.map { (it[Keys.PIANO_SCROLL_X] ?: 0).coerceAtLeast(0) }
-
     /**
      * Per-keyboard horizontal scroll offset (px). Each KeyboardPanel gets its
      * own independently persisted scroll position keyed by [KeyboardPanel.id].
@@ -262,13 +254,6 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setPianoZoom(z: Float) =
         edit { it[Keys.PIANO_ZOOM] = z.coerceIn(0.1f, 2.0f) }
-
-    @Deprecated(
-        "Use setPianoScrollX(panelId, px). Kept for one transition; remove after C2 wiring lands.",
-        ReplaceWith("setPianoScrollX(panelId, px)"),
-    )
-    suspend fun setPianoScrollX(px: Int) =
-        edit { it[Keys.PIANO_SCROLL_X] = px.coerceAtLeast(0) }
 
     /**
      * Persist the horizontal scroll for a single keyboard panel. Writes

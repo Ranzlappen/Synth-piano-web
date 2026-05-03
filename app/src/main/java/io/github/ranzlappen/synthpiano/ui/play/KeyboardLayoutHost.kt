@@ -27,6 +27,10 @@ import io.github.ranzlappen.synthpiano.data.ModifierPanel
  * The keyboard rendering is owned here; the modifier-strip body is
  * provided by the caller via [modifierContent], so this composable does
  * not need to thread through all of the chord-modifier state.
+ *
+ * [pianoScrollFor] returns the horizontal [ScrollState] for a given
+ * keyboard panel id; the caller persists each panel's scroll position
+ * independently via DataStore.
  */
 @Composable
 fun KeyboardLayoutHost(
@@ -36,7 +40,7 @@ fun KeyboardLayoutHost(
     onNoteOn: (Int) -> Unit,
     onNoteOff: (Int) -> Unit,
     modifierContent: @Composable (ModifierPanel) -> Unit,
-    pianoScrollState: ScrollState,
+    pianoScrollFor: (String) -> ScrollState,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier) {
@@ -56,7 +60,7 @@ fun KeyboardLayoutHost(
             ) {
                 PianoKeyboard(
                     modifier = Modifier.fillMaxSize(),
-                    scrollState = pianoScrollState,
+                    scrollState = pianoScrollFor(p.id),
                     heldBySource = heldBySource,
                     zoom = zoom,
                     onNoteOn = onNoteOn,
