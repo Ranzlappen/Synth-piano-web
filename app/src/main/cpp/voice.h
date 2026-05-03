@@ -39,8 +39,13 @@ public:
     uint64_t age() const { return age_; }
     void setAge(uint64_t a) { age_ = a; }
 
-    // True if the envelope is in the Release stage (preferred steal target).
-    bool isReleasing() const { return envelope_.stage() == Envelope::Stage::Release; }
+    // True if the envelope is in the Releasing or Killing stage (preferred
+    // steal target — note-off has already been triggered, so cutting in
+    // doesn't truncate a still-attacking voice).
+    bool isReleasing() const {
+        const auto s = envelope_.stage();
+        return s == Envelope::Stage::Releasing || s == Envelope::Stage::Killing;
+    }
 
 private:
     Oscillator osc_;

@@ -79,6 +79,23 @@ Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetEnvelopeCurve(JN
 }
 
 JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetEnvelopeShape(JNIEnv* env, jobject,
+                                                                               jlong h,
+                                                                               jfloatArray vertices,
+                                                                               jint sustainIndex) {
+    SynthEngine* e = asEngine(h);
+    if (!e || vertices == nullptr) return;
+    const jsize len = env->GetArrayLength(vertices);
+    if (len < 3) return;            // need at least one (t, l, c) triple
+    jboolean isCopy = JNI_FALSE;
+    jfloat* buf = env->GetFloatArrayElements(vertices, &isCopy);
+    if (!buf) return;
+    e->setEnvelopeShape(buf, len / 3, sustainIndex);
+    // No mutation: pass JNI_ABORT so the JVM doesn't waste a copy-back.
+    env->ReleaseFloatArrayElements(vertices, buf, JNI_ABORT);
+}
+
+JNIEXPORT void JNICALL
 Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetFilter(JNIEnv*, jobject, jlong h,
                                                                         jfloat cutoffHz, jfloat resonance) {
     if (auto* e = asEngine(h)) e->setFilter(cutoffHz, resonance);

@@ -15,6 +15,19 @@ namespace synthpiano {
 
 SynthEngine::SynthEngine() = default;
 
+void SynthEngine::setEnvelopeShape(const float* vertices, int32_t numVertices, int32_t sustainIndex) {
+    if (!vertices || numVertices < 1) return;
+    EnvelopeParams::Snapshot s{};
+    s.numVertices = std::min(static_cast<int32_t>(EnvelopeParams::kMaxVertices), numVertices);
+    s.sustainIndex = std::max(0, std::min(s.numVertices - 1, sustainIndex));
+    for (int32_t i = 0; i < s.numVertices; ++i) {
+        s.timeSec[i] = vertices[i * 3 + 0];
+        s.level[i]   = vertices[i * 3 + 1];
+        s.curve[i]   = vertices[i * 3 + 2];
+    }
+    envelope_.writeShape(s);
+}
+
 SynthEngine::~SynthEngine() {
     stop();
 }
@@ -170,7 +183,7 @@ void SynthEngine::applyEvent(const NoteEvent& e) {
             const float glide = glideSec_.load(std::memory_order_relaxed);
             const float velSens = velocitySensitivity_.load(std::memory_order_relaxed);
             if (v->isActive()) v->hardKill();
-            v->noteOn(e.midiNote, e.velocity, wf, adsr_, glide, velSens, lastTargetHz_);
+            v->noteOn(e.midiNote, e.velocity, wf, envelope_, glide, velSens, lastTargetHz_);
             v->setAge(++voiceTickCount_);
             lastTargetHz_ = 440.0f * std::pow(2.0f,
                 (static_cast<float>(e.midiNote) - 69.0f) / 12.0f);
@@ -179,14 +192,14 @@ void SynthEngine::applyEvent(const NoteEvent& e) {
         case NoteEvent::Kind::NoteOff: {
             for (auto& v : voices_) {
                 if (v.midiNote() == e.midiNote && v.isActive() && !v.isReleasing()) {
-                    v.noteOff(adsr_);
+                    v.noteOff(envelope_);
                 }
             }
             break;
         }
         case NoteEvent::Kind::AllNotesOff: {
             for (auto& v : voices_) {
-                if (v.isActive()) v.noteOff(adsr_);
+                if (v.isActive()) v.noteOff(envelope_);
             }
             break;
         }
@@ -214,7 +227,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
     }
 
     for (auto& v : voices_) {
-        v.renderAdd(scratch, numFrames, adsr_, filter_, mod_);
+        v.renderAdd(scratch, numFrames, envelope_, filter_, mod_);
     }
 
     const float amp = masterAmp_.load(std::memory_order_relaxed);

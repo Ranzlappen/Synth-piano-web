@@ -177,12 +177,11 @@ class SynthController(private val engine: NativeSynth) {
     }
 
     /**
-     * Set a multi-segment envelope shape. While the C++ engine still
-     * speaks ADSR (replaced in a follow-up commit), the shape is
-     * projected onto the closest ADSR via [EnvelopeShape.toAdsr] before
-     * being pushed to the engine. The full shape is preserved on the
-     * Kotlin side via [envelopeShape] so the editor doesn't lose
-     * intermediate vertices on a round-trip.
+     * Set a multi-segment envelope shape. The full shape is pushed to
+     * the C++ engine (which interpolates between vertices and holds
+     * the sustain pin) and the closest-fit Adsr projection is stored
+     * back into [_adsr] so legacy preset / slider code paths see a
+     * coherent ADSR view of the same envelope.
      */
     fun setEnvelopeShape(shape: EnvelopeShape) {
         if (shape.vertices.isEmpty()) return
@@ -198,10 +197,15 @@ class SynthController(private val engine: NativeSynth) {
         val safeSustain = shape.sustainIndex.coerceIn(0, safeVertices.lastIndex)
         val safe = EnvelopeShape(safeVertices, safeSustain)
         _envelopeShape.value = safe
-        val projected = safe.toAdsr()
-        _adsr.value = projected
-        engine.setAdsr(projected.attackSec, projected.decaySec, projected.sustain, projected.releaseSec)
-        engine.setEnvelopeCurve(projected.curve)
+        _adsr.value = safe.toAdsr()
+        // Flatten to (t, l, c) triples for the JNI bridge.
+        val flat = FloatArray(safeVertices.size * 3)
+        safeVertices.forEachIndexed { i, v ->
+            flat[i * 3 + 0] = v.timeSec
+            flat[i * 3 + 1] = v.level
+            flat[i * 3 + 2] = v.curve
+        }
+        engine.setEnvelopeShape(flat, safeSustain)
     }
 
     fun setMasterAmp(a: Float) {
