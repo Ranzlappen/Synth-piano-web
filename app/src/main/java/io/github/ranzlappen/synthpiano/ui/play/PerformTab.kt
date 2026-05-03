@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import io.github.ranzlappen.synthpiano.audio.NoteSource
 import io.github.ranzlappen.synthpiano.audio.SynthController
@@ -39,6 +40,8 @@ import kotlinx.coroutines.launch
 fun PerformTab(
     synth: SynthController,
     prefs: PreferencesRepository,
+    keyboardScrollStates: SnapshotStateMap<String, ScrollState>,
+    modifierScrollStates: SnapshotStateMap<String, ScrollState>,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -51,9 +54,9 @@ fun PerformTab(
 
     // One ScrollState per keyboard / modifier panel keyed by the panel's
     // stable UUID. Each state is seeded once from DataStore and writes back
-    // its own debounced position so panels never share scroll.
-    val keyboardScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
-    val modifierScrollStates = remember { mutableStateMapOf<String, ScrollState>() }
+    // its own debounced position so panels never share scroll. The maps
+    // are hoisted to SynthAppRoot so they survive tab switches in-process;
+    // re-entry doesn't have to round-trip DataStore.
 
     LaunchedEffect(keyboardLayout) {
         val keyboardIds = keyboardLayout.panels.map { it.id }.toSet()
@@ -100,14 +103,16 @@ fun PerformTab(
     }
 
     // Stable per-id lookups passed down to KeyboardLayoutHost/PerformModifierStrip.
-    // If a panel's state hasn't been seeded yet (first frame after a layout
-    // swap) we hand back a transient ScrollState(0) so child composables
-    // never see a null; the persisted seed will replace it next composition.
+    // Reads via `[id]` are reactive to map mutations, so when LaunchedEffect
+    // inserts the seeded ScrollState, the children recompose and pick it
+    // up. The transient ScrollState(0) fallback is *not* written into the
+    // map — that would block the seeded state from being inserted by the
+    // `if (id !in keyboardScrollStates)` guard above.
     val pianoScrollFor: (String) -> ScrollState = { id ->
-        keyboardScrollStates.getOrPut(id) { ScrollState(0) }
+        keyboardScrollStates[id] ?: ScrollState(0)
     }
     val modifierScrollFor: (String) -> ScrollState = { id ->
-        modifierScrollStates.getOrPut(id) { ScrollState(0) }
+        modifierScrollStates[id] ?: ScrollState(0)
     }
 
     // Held (momentary) modifiers live only in memory; releasing the
