@@ -61,10 +61,6 @@
     <string name="score_zoom_in">Zoom in</string>
     <string name="score_zoom_out">Zoom out</string>
 
-    <!-- Modifier strip legend -->
-    <string name="modifier_legend_sticky">Sticky</string>
-    <string name="modifier_legend_momentary">Hold</string>
-
     <!-- Settings -->
     <string name="settings_audio">Audio</string>
     <string name="settings_keyboard">Hardware Keyboard</string>

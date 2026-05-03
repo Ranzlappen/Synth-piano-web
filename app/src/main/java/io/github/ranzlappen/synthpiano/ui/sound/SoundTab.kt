@@ -109,15 +109,12 @@ fun SoundTab(
         scope.launch { prefs.setAdvancedExpanded(id, id !in advExpanded) }
     }
 
-    // Three layout tiers:
-    //   tablet (≥ 900 dp): 3-column grid, two rows; everything visible.
+    // Three responsive layout tiers compact horizontally; vertical scroll
+    // is always enabled so every slider stays reachable even when the cards
+    // overflow on shorter screens.
+    //   tablet (≥ 900 dp): 3-column grid, two rows; usually no scroll.
     //   mid    (600..899): 2-column grid + full-width scope underneath.
-    //                       With the basic/advanced split collapsed by
-    //                       default this fits a landscape phone without
-    //                       a scroll.
-    //   narrow (< 600):    single column; vertical scroll as a last
-    //                       resort because sliders are bottom-floored
-    //                       around 60-80 dp regardless.
+    //   narrow (< 600):    single column.
     val widthDp = LocalConfiguration.current.screenWidthDp
     val tier = when {
         widthDp >= 900 -> SoundLayoutTier.Tablet
@@ -125,15 +122,10 @@ fun SoundTab(
         else -> SoundLayoutTier.Narrow
     }
 
-    val outer: Modifier = when (tier) {
-        SoundLayoutTier.Narrow -> modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-        else -> modifier.fillMaxSize()
-    }
-
     Column(
-        modifier = outer,
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PresetCard(
