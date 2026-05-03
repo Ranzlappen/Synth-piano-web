@@ -85,28 +85,36 @@ fun InfoSlider(
             modifier = Modifier.width(valueWidth),
             textAlign = TextAlign.End,
         )
-        if (info != null) {
-            IconButton(
-                onClick = { infoOpen = true },
-                modifier = Modifier.size(28.dp),
-            ) {
-                Icon(
-                    Icons.Outlined.Info,
-                    contentDescription = stringResource(R.string.action_info),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
+        if (info != null) InfoIconButton(info)
     }
+}
 
-    if (infoOpen && info != null) {
+/**
+ * Standalone "ⓘ" button with the same modal dialog [InfoSlider] uses.
+ * Reuse for non-slider controls (e.g. steppers) so every interactive
+ * surface in the SOUND tab can have the same affordance.
+ */
+@Composable
+fun InfoIconButton(info: InfoCopy, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    IconButton(
+        onClick = { open = true },
+        modifier = modifier.size(28.dp),
+    ) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = stringResource(R.string.action_info),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+    if (open) {
         AlertDialog(
-            onDismissRequest = { infoOpen = false },
+            onDismissRequest = { open = false },
             title = { Text(stringResource(info.titleRes)) },
             text = { Text(stringResource(info.bodyRes)) },
             confirmButton = {
-                TextButton(onClick = { infoOpen = false }) {
+                TextButton(onClick = { open = false }) {
                     Text(stringResource(R.string.action_got_it))
                 }
             },

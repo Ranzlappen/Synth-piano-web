@@ -191,6 +191,35 @@
     <string name="sound_poly_comp">Comp. poli.</string>
     <string name="sound_headroom">Margen</string>
     <string name="sound_max_polyphony">Máx. voces</string>
+    <string name="sound_curve">Curva</string>
+    <string name="sound_cutoff">Corte</string>
+    <string name="sound_resonance">Resonancia</string>
+
+    <!-- Ventanas emergentes de información de los deslizadores -->
+    <string name="info_attack_title">Ataque</string>
+    <string name="info_attack_body">Tiempo que tarda el sonido en alcanzar su volumen máximo tras pulsar la tecla. Corto = percusivo y contundente, largo = aumentos lentos como cuerdas o pads.</string>
+    <string name="info_decay_title">Caída</string>
+    <string name="info_decay_body">Tras el Ataque, tiempo en bajar del volumen máximo al nivel de Sustain. Caída corta da carácter de pizzicato; larga suaviza hacia el sustain.</string>
+    <string name="info_sustain_title">Sustain</string>
+    <string name="info_sustain_body">Volumen mantenido mientras la tecla está pulsada (tras Ataque y Caída). 0 = silencia tras la caída; 1 = mantiene volumen máximo indefinidamente.</string>
+    <string name="info_release_title">Liberación</string>
+    <string name="info_release_body">Tiempo que tarda el sonido en apagarse al soltar la tecla. Corto = corte abrupto, largo = cola exuberante.</string>
+    <string name="info_curve_title">Curva de envolvente</string>
+    <string name="info_curve_body">Modela las rampas de Ataque y Liberación. Negativo = cóncavo (lento al inicio, rápido al final), positivo = convexo, 0 = lineal.</string>
+    <string name="info_cutoff_title">Frecuencia de corte</string>
+    <string name="info_cutoff_body">Frecuencia por encima de la cual el filtro pasabajo recorta brillo. Más baja = sonido más oscuro y grave; más alta = brillo completo.</string>
+    <string name="info_resonance_title">Resonancia del filtro</string>
+    <string name="info_resonance_body">Realza una banda estrecha alrededor de la frecuencia de corte. Poco = carácter; mucho = cualidad vocal, silbante o autooscilante.</string>
+    <string name="info_velocity_title">Sensibilidad de velocidad</string>
+    <string name="info_velocity_body">Cuánto se traducen pulsaciones más fuertes en notas más altas. 0 = ignorar (volumen constante), 1 = respuesta dinámica completa.</string>
+    <string name="info_glide_title">Glide (portamento)</string>
+    <string name="info_glide_body">Tiempo que tarda el tono en deslizarse a la nueva nota. 0 = sin desliz, más largo = glide perezoso entre notas.</string>
+    <string name="info_poly_comp_title">Compensación poli.</string>
+    <string name="info_poly_comp_body">Reduce automáticamente el volumen por voz cuando hay más teclas pulsadas para evitar acordes ensordecedores. 0 = desactivado; 1 = volumen percibido constante.</string>
+    <string name="info_headroom_title">Margen</string>
+    <string name="info_headroom_body">Ganancia previa al limitador. Por debajo de 1,0 = picos más limpios; por encima de 1,0 = saturación tanh cálida. La salida siempre está limitada — claridad o carácter sin recorte.</string>
+    <string name="info_max_polyphony_title">Máx. voces</string>
+    <string name="info_max_polyphony_body">Número máximo de notas simultáneas. Bajarlo reduce CPU y evita la turbidez por apilamiento; al exceder el tope se descarta la nota más antigua.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Asignar nueva tecla</string>

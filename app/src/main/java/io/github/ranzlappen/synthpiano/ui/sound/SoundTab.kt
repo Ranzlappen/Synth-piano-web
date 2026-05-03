@@ -28,8 +28,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,7 +47,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
@@ -64,6 +61,9 @@ import io.github.ranzlappen.synthpiano.data.PresetRepository
 import io.github.ranzlappen.synthpiano.data.SoundPreset
 import io.github.ranzlappen.synthpiano.ui.components.AdsrPreview
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
+import io.github.ranzlappen.synthpiano.ui.components.InfoCopy
+import io.github.ranzlappen.synthpiano.ui.components.InfoIconButton
+import io.github.ranzlappen.synthpiano.ui.components.InfoSlider
 import io.github.ranzlappen.synthpiano.ui.components.Oscilloscope
 import kotlinx.coroutines.launch
 import kotlin.math.log10
@@ -553,6 +553,7 @@ private fun EnvelopeCard(
                 range = 0.001f..2.0f,
                 isSeconds = true,
                 onChange = { onAdsr(adsr.copy(attackSec = it)) },
+                info = InfoCopy(R.string.info_attack_title, R.string.info_attack_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.adsr_decay),
@@ -560,6 +561,7 @@ private fun EnvelopeCard(
                 range = 0.001f..2.0f,
                 isSeconds = true,
                 onChange = { onAdsr(adsr.copy(decaySec = it)) },
+                info = InfoCopy(R.string.info_decay_title, R.string.info_decay_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.adsr_sustain),
@@ -567,6 +569,7 @@ private fun EnvelopeCard(
                 range = 0f..1f,
                 isSeconds = false,
                 onChange = { onAdsr(adsr.copy(sustain = it)) },
+                info = InfoCopy(R.string.info_sustain_title, R.string.info_sustain_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.adsr_release),
@@ -574,18 +577,26 @@ private fun EnvelopeCard(
                 range = 0.001f..3.0f,
                 isSeconds = true,
                 onChange = { onAdsr(adsr.copy(releaseSec = it)) },
+                info = InfoCopy(R.string.info_release_title, R.string.info_release_body),
             )
             EnvelopeSlider(
-                label = "Curve",
+                label = stringResource(R.string.sound_curve),
                 value = adsr.curve,
                 range = -1f..1f,
                 isSeconds = false,
                 onChange = { onAdsr(adsr.copy(curve = it)) },
+                info = InfoCopy(R.string.info_curve_title, R.string.info_curve_body),
             )
         }
     }
 }
 
+/**
+ * Thin SOUND-tab adapter over [InfoSlider]. Keeps the existing call sites
+ * tidy (sliders that don't supply [info] just don't show the icon) while
+ * letting every slider gain a localized info popup by passing an
+ * [InfoCopy] holder.
+ */
 @Composable
 private fun EnvelopeSlider(
     label: String,
@@ -593,41 +604,20 @@ private fun EnvelopeSlider(
     range: ClosedFloatingPointRange<Float>,
     isSeconds: Boolean,
     onChange: (Float) -> Unit,
+    info: InfoCopy? = null,
     valueFormatter: (Float) -> String = { v ->
         if (isSeconds) "%d ms".format((v * 1000f).toInt())
         else "%.2f".format(v)
     },
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(72.dp),
-        )
-        Slider(
-            value = value,
-            onValueChange = onChange,
-            valueRange = range,
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = Color.White.copy(alpha = 0.18f),
-            ),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = valueFormatter(value),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.width(64.dp),
-            textAlign = TextAlign.End,
-        )
-    }
+    InfoSlider(
+        label = label,
+        value = value,
+        range = range,
+        onChange = onChange,
+        valueFormatter = valueFormatter,
+        info = info,
+    )
 }
 
 @Composable
@@ -723,22 +713,24 @@ private fun FilterCard(
             val logMax = log10(18000f)
             val logVal = log10(filter.cutoffHz.coerceIn(50f, 18000f))
             EnvelopeSlider(
-                label = "Cutoff",
+                label = stringResource(R.string.sound_cutoff),
                 value = logVal,
                 range = logMin..logMax,
                 isSeconds = false,
                 onChange = { l -> onFilter(filter.copy(cutoffHz = 10f.pow(l))) },
+                info = InfoCopy(R.string.info_cutoff_title, R.string.info_cutoff_body),
                 valueFormatter = { l ->
                     val hz = 10f.pow(l)
                     if (hz >= 1000f) "%.1f kHz".format(hz / 1000f) else "%d Hz".format(hz.toInt())
                 },
             )
             EnvelopeSlider(
-                label = "Resonance",
+                label = stringResource(R.string.sound_resonance),
                 value = filter.resonance,
                 range = 0f..1f,
                 isSeconds = false,
                 onChange = { onFilter(filter.copy(resonance = it)) },
+                info = InfoCopy(R.string.info_resonance_title, R.string.info_resonance_body),
             )
         }
     }
@@ -765,6 +757,7 @@ private fun VoiceShapingCard(
                 range = 0f..1f,
                 isSeconds = false,
                 onChange = { onVoice(voice.copy(velocitySensitivity = it)) },
+                info = InfoCopy(R.string.info_velocity_title, R.string.info_velocity_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.sound_glide),
@@ -772,6 +765,7 @@ private fun VoiceShapingCard(
                 range = 0f..0.5f,
                 isSeconds = true,
                 onChange = { onVoice(voice.copy(glideSec = it)) },
+                info = InfoCopy(R.string.info_glide_title, R.string.info_glide_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.sound_poly_comp),
@@ -779,6 +773,7 @@ private fun VoiceShapingCard(
                 range = 0f..1f,
                 isSeconds = false,
                 onChange = onPolyComp,
+                info = InfoCopy(R.string.info_poly_comp_title, R.string.info_poly_comp_body),
                 valueFormatter = { v -> "%d%%".format((v * 100f).toInt()) },
             )
             EnvelopeSlider(
@@ -787,6 +782,7 @@ private fun VoiceShapingCard(
                 range = 0.5f..1.5f,
                 isSeconds = false,
                 onChange = onHeadroom,
+                info = InfoCopy(R.string.info_headroom_title, R.string.info_headroom_body),
                 valueFormatter = { v -> "%.2f×".format(v) },
             )
             PolyphonyStepper(
@@ -847,5 +843,8 @@ private fun PolyphonyStepper(
                 }
             }
         }
+        InfoIconButton(
+            info = InfoCopy(R.string.info_max_polyphony_title, R.string.info_max_polyphony_body),
+        )
     }
 }
