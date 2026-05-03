@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 private val Context.dataStore by preferencesDataStore(name = "synth_settings")
 
@@ -43,6 +46,8 @@ private object Keys {
     val CHORD_INV_STICKY = stringPreferencesKey("chord_inv_sticky")
     val PIANO_ZOOM = floatPreferencesKey("piano_zoom")
     val PIANO_SCROLL_X = intPreferencesKey("piano_scroll_x")
+    val PIANO_SCROLL_X_MAP = stringPreferencesKey("piano_scroll_x_map")
+    val MODIFIER_SCROLL_Y_MAP = stringPreferencesKey("modifier_scroll_y_map")
     val COMPOSER_EDITOR_W = floatPreferencesKey("composer_editor_weight")
     val COMPOSER_EDITOR_H = floatPreferencesKey("composer_editor_height")
     val KEYBOARD_LAYOUT_JSON = stringPreferencesKey("keyboard_layout_json")
@@ -136,8 +141,37 @@ class PreferencesRepository(private val context: Context) {
         context.dataStore.data.map { (it[Keys.PIANO_ZOOM] ?: 1.0f).coerceIn(0.1f, 2.0f) }
 
     /** Piano keyboard horizontal scroll offset in px; restored across sessions. */
+    @Deprecated(
+        "Use pianoScrollX(panelId). Kept for one transition; remove after C2 wiring lands.",
+        ReplaceWith("pianoScrollX(panelId)"),
+    )
     val pianoScrollX: Flow<Int> =
         context.dataStore.data.map { (it[Keys.PIANO_SCROLL_X] ?: 0).coerceAtLeast(0) }
+
+    /**
+     * Per-keyboard horizontal scroll offset (px). Each KeyboardPanel gets its
+     * own independently persisted scroll position keyed by [KeyboardPanel.id].
+     * Falls back to the legacy single-int [Keys.PIANO_SCROLL_X] for any panel
+     * not yet present in the new map (preserves prior session for users on
+     * the default layout).
+     */
+    fun pianoScrollX(panelId: String): Flow<Int> =
+        context.dataStore.data.map { prefs ->
+            val map = decodeScrollMap(prefs[Keys.PIANO_SCROLL_X_MAP])
+            val v = map[panelId] ?: prefs[Keys.PIANO_SCROLL_X] ?: 0
+            v.coerceAtLeast(0)
+        }
+
+    /**
+     * Per-modifier-pad vertical scroll offset (px). Each ModifierPanel gets
+     * its own independently persisted scroll position keyed by
+     * [ModifierPanel.id]. Defaults to 0 (no scroll) when absent.
+     */
+    fun modifierScrollY(padId: String): Flow<Int> =
+        context.dataStore.data.map { prefs ->
+            val map = decodeScrollMap(prefs[Keys.MODIFIER_SCROLL_Y_MAP])
+            (map[padId] ?: 0).coerceAtLeast(0)
+        }
 
     /** Composer editor pane weight in side-by-side layout (>=900dp). */
     val composerEditorWeight: Flow<Float> =
@@ -229,8 +263,48 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setPianoZoom(z: Float) =
         edit { it[Keys.PIANO_ZOOM] = z.coerceIn(0.1f, 2.0f) }
 
+    @Deprecated(
+        "Use setPianoScrollX(panelId, px). Kept for one transition; remove after C2 wiring lands.",
+        ReplaceWith("setPianoScrollX(panelId, px)"),
+    )
     suspend fun setPianoScrollX(px: Int) =
         edit { it[Keys.PIANO_SCROLL_X] = px.coerceAtLeast(0) }
+
+    /**
+     * Persist the horizontal scroll for a single keyboard panel. Writes
+     * through the new per-id map and clears the legacy single-int key on
+     * the first such write so subsequent reads no longer fall back to it.
+     */
+    suspend fun setPianoScrollX(panelId: String, px: Int) = edit { prefs ->
+        val map = decodeScrollMap(prefs[Keys.PIANO_SCROLL_X_MAP]).toMutableMap()
+        map[panelId] = px.coerceAtLeast(0)
+        prefs[Keys.PIANO_SCROLL_X_MAP] = encodeScrollMap(map)
+        prefs.remove(Keys.PIANO_SCROLL_X)
+    }
+
+    /** Persist the vertical scroll for a single modifier pad. */
+    suspend fun setModifierScrollY(padId: String, px: Int) = edit { prefs ->
+        val map = decodeScrollMap(prefs[Keys.MODIFIER_SCROLL_Y_MAP]).toMutableMap()
+        map[padId] = px.coerceAtLeast(0)
+        prefs[Keys.MODIFIER_SCROLL_Y_MAP] = encodeScrollMap(map)
+    }
+
+    /**
+     * Drop scroll-state entries whose owning panel/pad has been removed from
+     * the active layout. Called from PerformTab whenever the layout changes
+     * to keep the persisted maps from growing without bound.
+     */
+    suspend fun pruneScrollKeys(keepKeyboardIds: Set<String>, keepPadIds: Set<String>) = edit { prefs ->
+        val kbMap = decodeScrollMap(prefs[Keys.PIANO_SCROLL_X_MAP])
+            .filterKeys { it in keepKeyboardIds }
+        if (kbMap.isEmpty()) prefs.remove(Keys.PIANO_SCROLL_X_MAP)
+        else prefs[Keys.PIANO_SCROLL_X_MAP] = encodeScrollMap(kbMap)
+
+        val padMap = decodeScrollMap(prefs[Keys.MODIFIER_SCROLL_Y_MAP])
+            .filterKeys { it in keepPadIds }
+        if (padMap.isEmpty()) prefs.remove(Keys.MODIFIER_SCROLL_Y_MAP)
+        else prefs[Keys.MODIFIER_SCROLL_Y_MAP] = encodeScrollMap(padMap)
+    }
 
     suspend fun setComposerEditorWeight(w: Float) =
         edit { it[Keys.COMPOSER_EDITOR_W] = w.coerceIn(0.2f, 0.85f) }
@@ -276,6 +350,15 @@ class PreferencesRepository(private val context: Context) {
         context.dataStore.edit { prefs -> block(prefs) }
     }
 
+    private fun decodeScrollMap(raw: String?): Map<String, Int> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return runCatching { scrollMapJson.decodeFromString(scrollMapSerializer, raw) }
+            .getOrDefault(emptyMap())
+    }
+
+    private fun encodeScrollMap(map: Map<String, Int>): String =
+        scrollMapJson.encodeToString(scrollMapSerializer, map)
+
     /** Test/debug helper: erase everything. */
     suspend fun clear() {
         context.dataStore.edit { it.clear() }
@@ -289,10 +372,18 @@ class PreferencesRepository(private val context: Context) {
         Keys.OCTAVE, Keys.KEYBOARD_LEFT_C, Keys.KEYMAP_JSON,
         Keys.LAST_SCORE_URI, Keys.TEMPO_BPM, Keys.THEME_ACCENT,
         Keys.CHORD_MOD_STICKY, Keys.CHORD_INV_STICKY, Keys.PIANO_ZOOM,
-        Keys.PIANO_SCROLL_X,
+        Keys.PIANO_SCROLL_X, Keys.PIANO_SCROLL_X_MAP, Keys.MODIFIER_SCROLL_Y_MAP,
         Keys.COMPOSER_EDITOR_W, Keys.COMPOSER_EDITOR_H,
         Keys.KEYBOARD_LAYOUT_JSON, Keys.USER_LAYOUTS_JSON,
         Keys.HAS_SEEN_LAYOUT_ONBOARDING, Keys.LANGUAGE_TAG,
         Keys.ADVANCED_EXPANDED,
     )
 }
+
+private val scrollMapJson = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+    encodeDefaults = false
+}
+
+private val scrollMapSerializer = MapSerializer(String.serializer(), Int.serializer())
