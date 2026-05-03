@@ -42,6 +42,7 @@ fun PerformTab(
     prefs: PreferencesRepository,
     keyboardScrollStates: SnapshotStateMap<String, ScrollState>,
     modifierScrollStates: SnapshotStateMap<String, ScrollState>,
+    keyboardZoomStates: SnapshotStateMap<String, Float>,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -49,7 +50,6 @@ fun PerformTab(
     val heldBySource by synth.heldBySource.collectAsState()
     val sticky by prefs.chordModSticky.collectAsState(initial = emptySet())
     val stickyInv by prefs.chordInvSticky.collectAsState(initial = ChordInversion.NONE)
-    val zoom by prefs.pianoZoom.collectAsState(initial = 1.0f)
     val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
 
     // One ScrollState per keyboard / modifier panel keyed by the panel's
@@ -63,10 +63,14 @@ fun PerformTab(
         val modifierIds = keyboardLayout.modifiers.map { it.id }.toSet()
         keyboardScrollStates.keys.retainAll(keyboardIds)
         modifierScrollStates.keys.retainAll(modifierIds)
+        keyboardZoomStates.keys.retainAll(keyboardIds)
         for (id in keyboardIds) {
             if (id !in keyboardScrollStates) {
                 val seed = prefs.pianoScrollX(id).first().coerceAtLeast(0)
                 keyboardScrollStates[id] = ScrollState(seed)
+            }
+            if (id !in keyboardZoomStates) {
+                keyboardZoomStates[id] = prefs.pianoZoomFor(id).first().coerceIn(ZOOM_MIN, ZOOM_MAX)
             }
         }
         for (id in modifierIds) {
@@ -114,6 +118,25 @@ fun PerformTab(
     val modifierScrollFor: (String) -> ScrollState = { id ->
         modifierScrollStates[id] ?: ScrollState(0)
     }
+    val zoomFor: (String) -> Float = { id ->
+        keyboardZoomStates[id] ?: 1.0f
+    }
+    val onZoomIn: (String) -> Unit = { id ->
+        val cur = zoomFor(id)
+        val next = (cur + 0.1f).coerceAtMost(ZOOM_MAX)
+        if (next != cur) {
+            keyboardZoomStates[id] = next
+            scope.launch { prefs.setPianoZoom(id, next) }
+        }
+    }
+    val onZoomOut: (String) -> Unit = { id ->
+        val cur = zoomFor(id)
+        val next = (cur - 0.1f).coerceAtLeast(ZOOM_MIN)
+        if (next != cur) {
+            keyboardZoomStates[id] = next
+            scope.launch { prefs.setPianoZoom(id, next) }
+        }
+    }
 
     // Held (momentary) modifiers live only in memory; releasing the
     // SHIFT button or app exit clears them.
@@ -143,7 +166,9 @@ fun PerformTab(
     KeyboardLayoutHost(
         layout = keyboardLayout,
         heldBySource = heldBySource,
-        zoom = zoom,
+        zoomFor = zoomFor,
+        onZoomIn = onZoomIn,
+        onZoomOut = onZoomOut,
         onNoteOn = onPianoNoteOn,
         onNoteOff = onPianoNoteOff,
         pianoScrollFor = pianoScrollFor,
@@ -156,10 +181,8 @@ fun PerformTab(
                 stickyInv = stickyInv,
                 held = held,
                 heldInv = heldInv,
-                zoom = zoom,
                 showLock = modPanel.showLock,
                 showShift = modPanel.showShift,
-                showZoom = modPanel.showZoom,
                 verticalScrollState = modifierScrollFor(modPanel.id),
                 onStickyToggle = { q ->
                     val next = if (q in sticky) sticky - q else sticky + q
@@ -173,14 +196,6 @@ fun PerformTab(
                 onShiftRelease = { q -> held = held - q },
                 onShiftInvPress = { inv -> heldInv = inv },
                 onShiftInvRelease = { inv -> if (heldInv == inv) heldInv = ChordInversion.NONE },
-                onZoomIn = {
-                    val next = (zoom + 0.1f).coerceAtMost(ZOOM_MAX)
-                    if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
-                },
-                onZoomOut = {
-                    val next = (zoom - 0.1f).coerceAtLeast(ZOOM_MIN)
-                    if (next != zoom) scope.launch { prefs.setPianoZoom(next) }
-                },
             )
         },
     )

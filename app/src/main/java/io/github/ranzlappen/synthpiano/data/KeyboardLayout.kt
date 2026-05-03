@@ -57,6 +57,8 @@ data class ModifierPanel(
     val rotationDeg: Int = 0,
     val showLock: Boolean = true,
     val showShift: Boolean = true,
+    // No longer rendered: zoom buttons live on each keyboard panel itself.
+    // Field kept so existing user-saved layout JSON parses cleanly.
     val showZoom: Boolean = true,
     val qualities: List<ChordQuality> = ChordQuality.entries.toList(),
     val inversions: List<ChordInversion> = DEFAULT_INVERSIONS,

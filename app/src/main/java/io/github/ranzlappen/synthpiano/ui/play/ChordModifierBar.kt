@@ -110,13 +110,13 @@ private fun AdaptivePillGrid(
 
     BoxWithConstraints(modifier = modifier) {
         val gap = 4.dp
-        val targetMinWidth = 48.dp
+        val targetMinWidth = 32.dp
         val columns = ((maxWidth + gap) / (targetMinWidth + gap))
             .toInt()
             .coerceIn(1, items.size)
         val chunks = (items.size + columns - 1) / columns
         val pillHeight = ((maxHeight - gap * (chunks - 1).coerceAtLeast(0)) / chunks)
-            .coerceIn(28.dp, 64.dp)
+            .coerceIn(14.dp, 32.dp)
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -198,7 +198,7 @@ private fun ChordPillButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        val target = (maxHeight.value * 0.42f).coerceIn(9f, 14f).sp
+        val target = (maxHeight.value * 0.42f).coerceIn(8f, 13f).sp
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge.copy(

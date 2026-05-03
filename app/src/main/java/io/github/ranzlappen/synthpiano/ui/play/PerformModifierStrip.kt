@@ -9,29 +9,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import io.github.ranzlappen.synthpiano.R
 import io.github.ranzlappen.synthpiano.data.ChordInversion
 import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 
 /**
  * The chord-modifier strip pinned to a layout panel: Sticky (was "LOCK")
- * and Momentary (was "SHIFT") chord-modifier rows plus zoom +/- buttons.
+ * and Momentary (was "SHIFT") chord-modifier rows.
  *
  * The two row variants are distinguished by an underline on Sticky pill
  * labels. Pill heights still scale to fill the available container
- * vertical space (AdaptivePillGrid clamps to 64 dp at most); when the
- * pad is smaller than the natural content height even at the 28 dp
+ * vertical space (AdaptivePillGrid clamps to 32 dp at most); when the
+ * pad is smaller than the natural content height even at the 14 dp
  * pill-height floor, the inner column scrolls vertically. Each pad has
  * its own [verticalScrollState] so two pads in one layout never share
  * scroll position.
@@ -44,10 +37,8 @@ fun PerformModifierStrip(
     stickyInv: ChordInversion,
     held: Set<ChordQuality>,
     heldInv: ChordInversion,
-    zoom: Float,
     showLock: Boolean,
     showShift: Boolean,
-    showZoom: Boolean,
     verticalScrollState: ScrollState,
     onStickyToggle: (ChordQuality) -> Unit,
     onStickyInvToggle: (ChordInversion) -> Unit,
@@ -55,8 +46,6 @@ fun PerformModifierStrip(
     onShiftRelease: (ChordQuality) -> Unit,
     onShiftInvPress: (ChordInversion) -> Unit,
     onShiftInvRelease: (ChordInversion) -> Unit,
-    onZoomIn: () -> Unit,
-    onZoomOut: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier.fillMaxSize()) {
@@ -67,9 +56,9 @@ fun PerformModifierStrip(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Inner column scrolls when content can't fit even at the 28 dp
+            // Inner column scrolls when content can't fit even at the 14 dp
             // pill-height floor. When the pad is roomy, AdaptivePillGrid
-            // sees an effectively unbounded height and pins pills to 64 dp;
+            // sees an effectively unbounded height and pins pills to 32 dp;
             // the column is still shorter than the parent so no scroll.
             // A row with no qualities AND no inversions has nothing to show;
             // hide the entire row container so it doesn't reserve vertical
@@ -91,7 +80,7 @@ fun PerformModifierStrip(
                         inversion = stickyInv,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 56.dp),
+                            .heightIn(min = 28.dp),
                         onToggle = onStickyToggle,
                         onInversionToggle = onStickyInvToggle,
                     )
@@ -105,37 +94,12 @@ fun PerformModifierStrip(
                         inversion = heldInv,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 56.dp),
+                            .heightIn(min = 28.dp),
                         onPress = onShiftPress,
                         onRelease = onShiftRelease,
                         onInversionPress = onShiftInvPress,
                         onInversionRelease = onShiftInvRelease,
                     )
-                }
-            }
-            if (showZoom) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    IconButton(
-                        onClick = onZoomIn,
-                        enabled = zoom < ZOOM_MAX - 1e-3f,
-                    ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = stringResource(R.string.score_zoom_in),
-                        )
-                    }
-                    IconButton(
-                        onClick = onZoomOut,
-                        enabled = zoom > ZOOM_MIN + 1e-3f,
-                    ) {
-                        Icon(
-                            Icons.Filled.Remove,
-                            contentDescription = stringResource(R.string.score_zoom_out),
-                        )
-                    }
                 }
             }
         }
