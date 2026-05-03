@@ -64,11 +64,6 @@ fun PerformModifierStrip(
                 modifier = Modifier.weight(1f).fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                PillVariantLegend(
-                    stickyLabel = stringResource(R.string.modifier_legend_sticky),
-                    momentaryLabel = stringResource(R.string.modifier_legend_momentary),
-                    modifier = Modifier.padding(start = 2.dp),
-                )
                 if (showLock) {
                     ChordModifierRow(
                         variant = PillVariant.Sticky,
