@@ -4,8 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
@@ -23,7 +23,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-class MainActivity : ComponentActivity() {
+/**
+ * Extends [AppCompatActivity] (not [androidx.activity.ComponentActivity])
+ * so [androidx.appcompat.app.AppCompatDelegate.setApplicationLocales] can
+ * apply per-app locales on API 26-32 via the AndroidX backfill. On API 33+
+ * the system handles per-app language directly via the platform LocaleManager
+ * and [androidx.appcompat.app.AppCompatDelegate.setApplicationLocales]
+ * forwards to it.
+ */
+class MainActivity : AppCompatActivity() {
 
     private lateinit var synth: SynthController
     private lateinit var midi: MidiManager
