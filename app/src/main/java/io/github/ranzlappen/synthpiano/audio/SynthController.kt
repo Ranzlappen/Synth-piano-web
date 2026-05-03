@@ -54,8 +54,17 @@ class SynthController(private val engine: NativeSynth) {
     private val _voiceShaping = MutableStateFlow(VoiceShaping())
     val voiceShaping: StateFlow<VoiceShaping> = _voiceShaping.asStateFlow()
 
+    private val _drive = MutableStateFlow(0f)
+    val drive: StateFlow<Float> = _drive.asStateFlow()
+
     private val _polyComp = MutableStateFlow(1f)
     val polyComp: StateFlow<Float> = _polyComp.asStateFlow()
+
+    private val _headroom = MutableStateFlow(1f)
+    val headroom: StateFlow<Float> = _headroom.asStateFlow()
+
+    private val _maxPolyphony = MutableStateFlow(NativeSynth.MAX_VOICES)
+    val maxPolyphony: StateFlow<Int> = _maxPolyphony.asStateFlow()
 
     private val _heldNotes = MutableStateFlow<Set<Int>>(emptySet())
     val heldNotes: StateFlow<Set<Int>> = _heldNotes.asStateFlow()
@@ -89,6 +98,9 @@ class SynthController(private val engine: NativeSynth) {
                 engine.setGlideSec(glideSec)
             }
             engine.setPolyCompensation(_polyComp.value)
+            engine.setHeadroom(_headroom.value)
+            engine.setMaxPolyphony(_maxPolyphony.value)
+            engine.setDrive(_drive.value)
         }
     }
 
@@ -191,6 +203,24 @@ class SynthController(private val engine: NativeSynth) {
         val safe = v.coerceIn(0f, 1f)
         _polyComp.value = safe
         engine.setPolyCompensation(safe)
+    }
+
+    fun setHeadroom(v: Float) {
+        val safe = v.coerceIn(0.5f, 1.5f)
+        _headroom.value = safe
+        engine.setHeadroom(safe)
+    }
+
+    fun setMaxPolyphony(n: Int) {
+        val safe = n.coerceIn(1, NativeSynth.MAX_VOICES)
+        _maxPolyphony.value = safe
+        engine.setMaxPolyphony(safe)
+    }
+
+    fun setDrive(d: Float) {
+        val safe = d.coerceIn(0f, 1f)
+        _drive.value = safe
+        engine.setDrive(safe)
     }
 
     fun engine(): NativeSynth = engine

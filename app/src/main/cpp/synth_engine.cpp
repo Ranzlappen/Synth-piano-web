@@ -37,10 +37,24 @@ bool SynthEngine::start() {
     }
 
     sampleRate_.store(stream_->getSampleRate(), std::memory_order_release);
-    LOGI("Stream opened: rate=%d framesPerBurst=%d perf=%d",
-         stream_->getSampleRate(),
-         stream_->getFramesPerBurst(),
-         static_cast<int>(stream_->getPerformanceMode()));
+
+    // Pin the buffer to 2 bursts. The default Oboe burst alone underruns on
+    // some devices when the audio thread is briefly preempted (Android
+    // scheduler hiccup, GC, large UI redraw), and underruns produce the
+    // "crackle" the user is hearing. Two bursts gives ~3-10 ms headroom
+    // depending on device while still well inside LowLatency territory.
+    const int32_t targetBuffer = stream_->getFramesPerBurst() * 2;
+    const auto bufResult = stream_->setBufferSizeInFrames(targetBuffer);
+    if (bufResult) {
+        LOGI("Stream opened: rate=%d framesPerBurst=%d bufferSize=%d perf=%d",
+             stream_->getSampleRate(),
+             stream_->getFramesPerBurst(),
+             bufResult.value(),
+             static_cast<int>(stream_->getPerformanceMode()));
+    } else {
+        LOGW("setBufferSizeInFrames(%d) rejected: %s (continuing with default)",
+             targetBuffer, oboe::convertToText(bufResult.error()));
+    }
 
     for (auto& v : voices_) {
         v.prepare(static_cast<float>(stream_->getSampleRate()));
@@ -67,6 +81,7 @@ bool SynthEngine::tryPost(const NoteEvent& e) {
     const int32_t w = writeIdx_.load(std::memory_order_relaxed);
     const int32_t r = readIdx_.load(std::memory_order_acquire);
     if (((w + 1) & kEventQueueMask) == (r & kEventQueueMask)) {
+        eventDropCount_.fetch_add(1, std::memory_order_relaxed);
         return false;  // full
     }
     events_[w & kEventQueueMask] = e;
@@ -107,18 +122,26 @@ void SynthEngine::drainEvents() {
 }
 
 Voice* SynthEngine::findFreeVoice(int32_t midiNote) {
+    // Honor the user-configured polyphony cap: voices at indices >= cap are
+    // off-limits even if idle. Reading the atomic once keeps the cap stable
+    // across the four search passes.
+    int32_t cap = maxActiveVoices_.load(std::memory_order_relaxed);
+    if (cap < 1) cap = 1;
+    if (cap > kMaxVoices) cap = kMaxVoices;
+
     // 1. Idle voice.
-    for (auto& v : voices_) {
-        if (!v.isActive()) return &v;
+    for (int32_t i = 0; i < cap; ++i) {
+        if (!voices_[i].isActive()) return &voices_[i];
     }
     // 2. Same-note retrigger (avoid stacking duplicate-pitch voices).
-    for (auto& v : voices_) {
-        if (v.midiNote() == midiNote) return &v;
+    for (int32_t i = 0; i < cap; ++i) {
+        if (voices_[i].midiNote() == midiNote) return &voices_[i];
     }
     // 3. Releasing voice with the lowest age.
     Voice* best = nullptr;
     uint64_t bestAge = UINT64_MAX;
-    for (auto& v : voices_) {
+    for (int32_t i = 0; i < cap; ++i) {
+        Voice& v = voices_[i];
         if (v.isReleasing() && v.age() < bestAge) {
             bestAge = v.age();
             best = &v;
@@ -128,7 +151,8 @@ Voice* SynthEngine::findFreeVoice(int32_t midiNote) {
     // 4. Steal the oldest voice outright.
     bestAge = UINT64_MAX;
     best = &voices_[0];
-    for (auto& v : voices_) {
+    for (int32_t i = 0; i < cap; ++i) {
+        Voice& v = voices_[i];
         if (v.age() < bestAge) {
             bestAge = v.age();
             best = &v;
@@ -190,11 +214,12 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
     }
 
     for (auto& v : voices_) {
-        v.renderAdd(scratch, numFrames, adsr_, filter_);
+        v.renderAdd(scratch, numFrames, adsr_, filter_, mod_);
     }
 
     const float amp = masterAmp_.load(std::memory_order_relaxed);
     const float comp = polyComp_.load(std::memory_order_relaxed);
+    const float headroom = headroom_.load(std::memory_order_relaxed);
     const float invSqrtN = (activeVoices > 1)
         ? 1.0f / std::sqrt(static_cast<float>(activeVoices))
         : 1.0f;
@@ -214,15 +239,15 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
     const int32_t scopeRead = scopeReadIdx_.load(std::memory_order_acquire);
 
     for (int32_t i = 0; i < numFrames; ++i) {
-        float s = scratch[i] * amp * voiceGain;
-        // Soft clip to avoid digital harshness if voices stack.
-        if (s > 1.0f)  s = 1.0f - 0.5f * (s - 1.0f);
-        if (s < -1.0f) s = -1.0f + 0.5f * (-1.0f - s);
-        if (s > 1.0f)  s = 1.0f;
-        if (s < -1.0f) s = -1.0f;
-
-        out[2 * i + 0] = s;
-        out[2 * i + 1] = s;
+        // tanh post-gain limiter. Smooth knee replaces the previous
+        // piecewise soft+hard clip cascade, which folded high-frequency
+        // aliases back into the audible band when chord pads stacked
+        // voices past unity. tanh is bounded to (-1, 1) by construction
+        // and is C^infty, so high polyphony saturates gracefully instead
+        // of crackling.
+        out[2 * i + 0] = out[2 * i + 1] =
+            std::tanh(scratch[i] * amp * voiceGain * headroom);
+        const float s = out[2 * i + 0];
 
         const float a = std::fabs(s);
         if (a > localPeak) localPeak = a;

@@ -23,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import android.app.Activity
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
@@ -46,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.BuildConfig
@@ -85,7 +83,6 @@ fun SetupTab(
     val keyboardLayout by prefs.keyboardLayout.collectAsState(initial = BuiltInLayouts.DEFAULT)
     val userLayouts by layouts.userLayouts.collectAsState(initial = emptyList())
     val currentLanguageTag by prefs.languageTag.collectAsState(initial = null)
-    val activity = LocalContext.current as? Activity
     var saveAsCurrent by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
 
@@ -252,9 +249,15 @@ fun SetupTab(
                     FilterChip(
                         selected = isActive,
                         onClick = {
-                            scope.launch { prefs.setLanguageTag(option.tag) }
-                            LocaleManager.applyLocale(option.tag)
-                            activity?.recreate()
+                            // Persist first, then apply the locale. AppCompatDelegate
+                            // triggers an automatic activity recreate when the locale
+                            // changes, so calling activity.recreate() ourselves would
+                            // race with the DataStore commit and cause MainActivity
+                            // to read the stale tag on the next cold start.
+                            scope.launch {
+                                prefs.setLanguageTag(option.tag)
+                                LocaleManager.applyLocale(option.tag)
+                            }
                         },
                         label = { Text(stringResource(option.labelRes)) },
                         leadingIcon = if (isActive) {

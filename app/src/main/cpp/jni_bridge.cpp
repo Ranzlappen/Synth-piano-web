@@ -97,9 +97,33 @@ Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetGlideSec(JNIEnv*
 }
 
 JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetDrive(JNIEnv*, jobject, jlong h,
+                                                                       jfloat d) {
+    if (auto* e = asEngine(h)) e->setDrive(d);
+}
+
+JNIEXPORT void JNICALL
 Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetPolyCompensation(JNIEnv*, jobject,
                                                                                   jlong h, jfloat v) {
     if (auto* e = asEngine(h)) e->setPolyCompensation(v);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetHeadroom(JNIEnv*, jobject,
+                                                                          jlong h, jfloat v) {
+    if (auto* e = asEngine(h)) e->setHeadroom(v);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetMaxPolyphony(JNIEnv*, jobject,
+                                                                              jlong h, jint n) {
+    if (auto* e = asEngine(h)) e->setMaxPolyphony(n);
+}
+
+JNIEXPORT jint JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeGetEventDropCount(JNIEnv*, jobject,
+                                                                                jlong h) {
+    return asEngine(h) ? static_cast<jint>(asEngine(h)->eventDropCount()) : 0;
 }
 
 JNIEXPORT jint JNICALL

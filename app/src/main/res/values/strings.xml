@@ -61,6 +61,10 @@
     <string name="score_zoom_in">Zoom in</string>
     <string name="score_zoom_out">Zoom out</string>
 
+    <!-- Modifier strip legend -->
+    <string name="modifier_legend_sticky">Sticky</string>
+    <string name="modifier_legend_momentary">Hold</string>
+
     <!-- Settings -->
     <string name="settings_audio">Audio</string>
     <string name="settings_keyboard">Hardware Keyboard</string>
@@ -127,6 +131,11 @@
     <string name="action_save">Save</string>
     <string name="action_apply">Apply</string>
     <string name="action_rename">Rename</string>
+    <string name="action_info">More info</string>
+    <string name="action_got_it">Got it</string>
+
+    <!-- Sound tab — collapsible advanced section -->
+    <string name="sound_advanced">Advanced</string>
 
     <!-- Keyboard layout editor -->
     <string name="editor_title">Edit Layout</string>
@@ -177,6 +186,43 @@
     <string name="sound_preset_name_label">Name</string>
     <string name="sound_filter_title">Filter</string>
     <string name="sound_voice_title">Voice</string>
+    <string name="sound_velocity">Velocity</string>
+    <string name="sound_glide">Glide</string>
+    <string name="sound_poly_comp">Poly Comp</string>
+    <string name="sound_headroom">Headroom</string>
+    <string name="sound_max_polyphony">Max voices</string>
+    <string name="sound_curve">Curve</string>
+    <string name="sound_cutoff">Cutoff</string>
+    <string name="sound_resonance">Resonance</string>
+    <string name="sound_drive">Drive</string>
+
+    <!-- Slider info popups (title / body pairs) -->
+    <string name="info_attack_title">Attack</string>
+    <string name="info_attack_body">How long the sound takes to reach full volume after a key is pressed. Short = punchy and percussive, long = slow swells like strings or pads.</string>
+    <string name="info_decay_title">Decay</string>
+    <string name="info_decay_body">After Attack, how long it takes the sound to drop from full volume down to the Sustain level. Short decay gives a plucky character, long decay smooths into the sustained tone.</string>
+    <string name="info_sustain_title">Sustain</string>
+    <string name="info_sustain_body">Volume held while a key stays pressed (after Attack and Decay). 0 mutes after the decay; 1 holds at full volume forever.</string>
+    <string name="info_release_title">Release</string>
+    <string name="info_release_body">How long the sound fades to silence after a key is released. Short = abrupt cut, long = lush trailing tail.</string>
+    <string name="info_curve_title">Envelope curve</string>
+    <string name="info_curve_body">Shapes the Attack and Release ramps. Negative values bend them concave (slow start, fast finish), positive values convex (fast start, slow finish), 0 is linear.</string>
+    <string name="info_cutoff_title">Filter cutoff</string>
+    <string name="info_cutoff_body">Frequency above which the low-pass filter starts removing brightness. Lower values darken the sound (more bass-heavy), higher values let the full brightness through.</string>
+    <string name="info_resonance_title">Filter resonance</string>
+    <string name="info_resonance_body">Boosts a narrow band right around the cutoff frequency. A little adds character; a lot creates a vocal, whistling, or self-oscillating quality.</string>
+    <string name="info_velocity_title">Velocity sensitivity</string>
+    <string name="info_velocity_body">How much harder presses translate into louder notes. 0 = ignore velocity (constant volume), 1 = full dynamic response.</string>
+    <string name="info_glide_title">Glide (portamento)</string>
+    <string name="info_glide_body">Time the pitch takes to slide from the previous note to the new one. 0 = no slide, longer = lazy lead-style glide between notes.</string>
+    <string name="info_poly_comp_title">Polyphony compensation</string>
+    <string name="info_poly_comp_body">Automatically reduces voice volume as more keys are held so chords don\'t get explosively loud. 0 disables compensation; 1 keeps perceived loudness constant across chord sizes.</string>
+    <string name="info_headroom_title">Headroom</string>
+    <string name="info_headroom_body">Pre-limiter input gain. Below 1.0 keeps peaks cleaner; above 1.0 drives the limiter for warm tanh saturation. The output is always bounded so this trades clarity for character without ever clipping.</string>
+    <string name="info_max_polyphony_title">Max voices</string>
+    <string name="info_max_polyphony_body">Maximum number of simultaneous notes. Lowering it reduces CPU and prevents stacking-induced muddiness; the oldest note is dropped when the cap is exceeded.</string>
+    <string name="info_drive_title">Drive</string>
+    <string name="info_drive_body">Pre-filter waveshaper. 0 is clean; turn it up for warm tube-style breakup at low values, harder grit at high values. Sits between the oscillator and the filter, so the filter still tames any harshness.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Bind new key</string>

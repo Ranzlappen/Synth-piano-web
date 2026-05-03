@@ -28,8 +28,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,7 +47,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.ranzlappen.synthpiano.R
@@ -63,7 +60,11 @@ import io.github.ranzlappen.synthpiano.data.PreferencesRepository
 import io.github.ranzlappen.synthpiano.data.PresetRepository
 import io.github.ranzlappen.synthpiano.data.SoundPreset
 import io.github.ranzlappen.synthpiano.ui.components.AdsrPreview
+import io.github.ranzlappen.synthpiano.ui.components.ExpandableSection
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
+import io.github.ranzlappen.synthpiano.ui.components.InfoCopy
+import io.github.ranzlappen.synthpiano.ui.components.InfoIconButton
+import io.github.ranzlappen.synthpiano.ui.components.InfoSlider
 import io.github.ranzlappen.synthpiano.ui.components.Oscilloscope
 import kotlinx.coroutines.launch
 import kotlin.math.log10
@@ -91,21 +92,48 @@ fun SoundTab(
     val filter by synth.filter.collectAsState()
     val voice by synth.voiceShaping.collectAsState()
     val polyComp by synth.polyComp.collectAsState()
+    val headroom by synth.headroom.collectAsState()
+    val maxPolyphony by synth.maxPolyphony.collectAsState()
+    val drive by synth.drive.collectAsState()
     val userPresets by presets.userPresets.collectAsState(initial = emptyList())
     val selectedPresetName by prefs.lastPresetName.collectAsState(initial = null)
+    val advExpanded by prefs.advancedExpanded.collectAsState(initial = emptySet())
 
     LaunchedEffect(waveform) { prefs.setWaveform(waveform) }
     LaunchedEffect(adsr) { prefs.setAdsr(adsr) }
     LaunchedEffect(filter) { prefs.setFilter(filter) }
     LaunchedEffect(voice) { prefs.setVoiceShaping(voice) }
 
+    val scope = rememberCoroutineScope()
+    val onToggleAdvanced: (String) -> Unit = { id ->
+        scope.launch { prefs.setAdvancedExpanded(id, id !in advExpanded) }
+    }
+
+    // Three layout tiers:
+    //   tablet (≥ 900 dp): 3-column grid, two rows; everything visible.
+    //   mid    (600..899): 2-column grid + full-width scope underneath.
+    //                       With the basic/advanced split collapsed by
+    //                       default this fits a landscape phone without
+    //                       a scroll.
+    //   narrow (< 600):    single column; vertical scroll as a last
+    //                       resort because sliders are bottom-floored
+    //                       around 60-80 dp regardless.
     val widthDp = LocalConfiguration.current.screenWidthDp
-    val wide = widthDp >= 900
+    val tier = when {
+        widthDp >= 900 -> SoundLayoutTier.Tablet
+        widthDp >= 600 -> SoundLayoutTier.Mid
+        else -> SoundLayoutTier.Narrow
+    }
+
+    val outer: Modifier = when (tier) {
+        SoundLayoutTier.Narrow -> modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+        else -> modifier.fillMaxSize()
+    }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+        modifier = outer,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PresetCard(
@@ -116,83 +144,104 @@ fun SoundTab(
             modifier = Modifier.fillMaxWidth().wrapContentHeight(),
         )
 
-        if (wide) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OscillatorCard(
-                    waveform = waveform,
-                    onSelect = synth::setWaveform,
-                    modifier = Modifier.weight(1f),
-                )
-                EnvelopeCard(
-                    adsr = adsr,
-                    onAdsr = {
-                        synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve)
-                    },
-                    modifier = Modifier.weight(1.5f),
-                )
-                OscilloscopeCard(
-                    synth = synth,
-                    modifier = Modifier.weight(1.2f).height(280.dp),
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                FilterCard(
-                    filter = filter,
-                    onFilter = { synth.setFilter(it.cutoffHz, it.resonance) },
-                    modifier = Modifier.weight(1f),
-                )
-                VoiceShapingCard(
-                    voice = voice,
-                    polyComp = polyComp,
-                    onVoice = { v ->
-                        synth.setVelocitySensitivity(v.velocitySensitivity)
-                        synth.setGlideSec(v.glideSec)
-                    },
-                    onPolyComp = synth::setPolyCompensation,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        } else {
+        // Card rendering helpers — captured here so each tier just composes
+        // them into the right grid without repeating the call sites.
+        val osc: @Composable (Modifier) -> Unit = { m ->
             OscillatorCard(
                 waveform = waveform,
                 onSelect = synth::setWaveform,
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                modifier = m,
             )
+        }
+        val env: @Composable (Modifier) -> Unit = { m ->
             EnvelopeCard(
                 adsr = adsr,
-                onAdsr = {
-                    synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve)
-                },
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                onAdsr = { synth.setAdsr(it.attackSec, it.decaySec, it.sustain, it.releaseSec, it.curve) },
+                advancedExpanded = "envelope" in advExpanded,
+                onAdvancedToggle = { onToggleAdvanced("envelope") },
+                modifier = m,
             )
-            OscilloscopeCard(
-                synth = synth,
-                modifier = Modifier.fillMaxWidth().height(220.dp),
-            )
+        }
+        val flt: @Composable (Modifier) -> Unit = { m ->
             FilterCard(
                 filter = filter,
                 onFilter = { synth.setFilter(it.cutoffHz, it.resonance) },
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                advancedExpanded = "filter" in advExpanded,
+                onAdvancedToggle = { onToggleAdvanced("filter") },
+                modifier = m,
             )
+        }
+        val voc: @Composable (Modifier) -> Unit = { m ->
             VoiceShapingCard(
                 voice = voice,
                 polyComp = polyComp,
+                headroom = headroom,
+                maxPolyphony = maxPolyphony,
+                drive = drive,
                 onVoice = { v ->
                     synth.setVelocitySensitivity(v.velocitySensitivity)
                     synth.setGlideSec(v.glideSec)
                 },
                 onPolyComp = synth::setPolyCompensation,
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                onHeadroom = synth::setHeadroom,
+                onMaxPolyphony = synth::setMaxPolyphony,
+                onDrive = synth::setDrive,
+                advancedExpanded = "voice" in advExpanded,
+                onAdvancedToggle = { onToggleAdvanced("voice") },
+                modifier = m,
             )
+        }
+        val scopeCard: @Composable (Modifier) -> Unit = { m ->
+            OscilloscopeCard(synth = synth, modifier = m)
+        }
+
+        when (tier) {
+            SoundLayoutTier.Tablet -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    osc(Modifier.weight(1f))
+                    env(Modifier.weight(1.5f))
+                    scopeCard(Modifier.weight(1.2f).height(280.dp))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    flt(Modifier.weight(1f))
+                    voc(Modifier.weight(1f))
+                }
+            }
+            SoundLayoutTier.Mid -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    osc(Modifier.weight(1f))
+                    env(Modifier.weight(1.5f))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    flt(Modifier.weight(1f))
+                    voc(Modifier.weight(1.5f))
+                }
+                scopeCard(Modifier.fillMaxWidth().height(140.dp))
+            }
+            SoundLayoutTier.Narrow -> {
+                osc(Modifier.fillMaxWidth().wrapContentHeight())
+                env(Modifier.fillMaxWidth().wrapContentHeight())
+                scopeCard(Modifier.fillMaxWidth().height(220.dp))
+                flt(Modifier.fillMaxWidth().wrapContentHeight())
+                voc(Modifier.fillMaxWidth().wrapContentHeight())
+            }
         }
     }
 }
+
+private enum class SoundLayoutTier { Tablet, Mid, Narrow }
 
 @Composable
 private fun PresetCard(
@@ -527,6 +576,8 @@ private fun WaveformIcon(
 private fun EnvelopeCard(
     adsr: Adsr,
     onAdsr: (Adsr) -> Unit,
+    advancedExpanded: Boolean,
+    onAdvancedToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier) {
@@ -543,6 +594,7 @@ private fun EnvelopeCard(
                 range = 0.001f..2.0f,
                 isSeconds = true,
                 onChange = { onAdsr(adsr.copy(attackSec = it)) },
+                info = InfoCopy(R.string.info_attack_title, R.string.info_attack_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.adsr_decay),
@@ -550,6 +602,7 @@ private fun EnvelopeCard(
                 range = 0.001f..2.0f,
                 isSeconds = true,
                 onChange = { onAdsr(adsr.copy(decaySec = it)) },
+                info = InfoCopy(R.string.info_decay_title, R.string.info_decay_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.adsr_sustain),
@@ -557,6 +610,7 @@ private fun EnvelopeCard(
                 range = 0f..1f,
                 isSeconds = false,
                 onChange = { onAdsr(adsr.copy(sustain = it)) },
+                info = InfoCopy(R.string.info_sustain_title, R.string.info_sustain_body),
             )
             EnvelopeSlider(
                 label = stringResource(R.string.adsr_release),
@@ -564,18 +618,32 @@ private fun EnvelopeCard(
                 range = 0.001f..3.0f,
                 isSeconds = true,
                 onChange = { onAdsr(adsr.copy(releaseSec = it)) },
+                info = InfoCopy(R.string.info_release_title, R.string.info_release_body),
             )
-            EnvelopeSlider(
-                label = "Curve",
-                value = adsr.curve,
-                range = -1f..1f,
-                isSeconds = false,
-                onChange = { onAdsr(adsr.copy(curve = it)) },
-            )
+            ExpandableSection(
+                expanded = advancedExpanded,
+                onToggle = onAdvancedToggle,
+                label = stringResource(R.string.sound_advanced),
+            ) {
+                EnvelopeSlider(
+                    label = stringResource(R.string.sound_curve),
+                    value = adsr.curve,
+                    range = -1f..1f,
+                    isSeconds = false,
+                    onChange = { onAdsr(adsr.copy(curve = it)) },
+                    info = InfoCopy(R.string.info_curve_title, R.string.info_curve_body),
+                )
+            }
         }
     }
 }
 
+/**
+ * Thin SOUND-tab adapter over [InfoSlider]. Keeps the existing call sites
+ * tidy (sliders that don't supply [info] just don't show the icon) while
+ * letting every slider gain a localized info popup by passing an
+ * [InfoCopy] holder.
+ */
 @Composable
 private fun EnvelopeSlider(
     label: String,
@@ -583,41 +651,20 @@ private fun EnvelopeSlider(
     range: ClosedFloatingPointRange<Float>,
     isSeconds: Boolean,
     onChange: (Float) -> Unit,
+    info: InfoCopy? = null,
     valueFormatter: (Float) -> String = { v ->
         if (isSeconds) "%d ms".format((v * 1000f).toInt())
         else "%.2f".format(v)
     },
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(72.dp),
-        )
-        Slider(
-            value = value,
-            onValueChange = onChange,
-            valueRange = range,
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = Color.White.copy(alpha = 0.18f),
-            ),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = valueFormatter(value),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.width(64.dp),
-            textAlign = TextAlign.End,
-        )
-    }
+    InfoSlider(
+        label = label,
+        value = value,
+        range = range,
+        onChange = onChange,
+        valueFormatter = valueFormatter,
+        info = info,
+    )
 }
 
 @Composable
@@ -702,6 +749,8 @@ private fun AuditionKeyButton(synth: SynthController) {
 private fun FilterCard(
     filter: FilterSettings,
     onFilter: (FilterSettings) -> Unit,
+    advancedExpanded: Boolean,
+    onAdvancedToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier) {
@@ -713,23 +762,31 @@ private fun FilterCard(
             val logMax = log10(18000f)
             val logVal = log10(filter.cutoffHz.coerceIn(50f, 18000f))
             EnvelopeSlider(
-                label = "Cutoff",
+                label = stringResource(R.string.sound_cutoff),
                 value = logVal,
                 range = logMin..logMax,
                 isSeconds = false,
                 onChange = { l -> onFilter(filter.copy(cutoffHz = 10f.pow(l))) },
+                info = InfoCopy(R.string.info_cutoff_title, R.string.info_cutoff_body),
                 valueFormatter = { l ->
                     val hz = 10f.pow(l)
                     if (hz >= 1000f) "%.1f kHz".format(hz / 1000f) else "%d Hz".format(hz.toInt())
                 },
             )
-            EnvelopeSlider(
-                label = "Resonance",
-                value = filter.resonance,
-                range = 0f..1f,
-                isSeconds = false,
-                onChange = { onFilter(filter.copy(resonance = it)) },
-            )
+            ExpandableSection(
+                expanded = advancedExpanded,
+                onToggle = onAdvancedToggle,
+                label = stringResource(R.string.sound_advanced),
+            ) {
+                EnvelopeSlider(
+                    label = stringResource(R.string.sound_resonance),
+                    value = filter.resonance,
+                    range = 0f..1f,
+                    isSeconds = false,
+                    onChange = { onFilter(filter.copy(resonance = it)) },
+                    info = InfoCopy(R.string.info_resonance_title, R.string.info_resonance_body),
+                )
+            }
         }
     }
 }
@@ -738,35 +795,131 @@ private fun FilterCard(
 private fun VoiceShapingCard(
     voice: VoiceShaping,
     polyComp: Float,
+    headroom: Float,
+    maxPolyphony: Int,
+    drive: Float,
     onVoice: (VoiceShaping) -> Unit,
     onPolyComp: (Float) -> Unit,
+    onHeadroom: (Float) -> Unit,
+    onMaxPolyphony: (Int) -> Unit,
+    onDrive: (Float) -> Unit,
+    advancedExpanded: Boolean,
+    onAdvancedToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassCard(modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.sound_voice_title), style = MaterialTheme.typography.titleMedium)
+            // Basic: high-impact voice modifiers a casual user reaches for first.
             EnvelopeSlider(
-                label = "Velocity",
-                value = voice.velocitySensitivity,
-                range = 0f..1f,
-                isSeconds = false,
-                onChange = { onVoice(voice.copy(velocitySensitivity = it)) },
-            )
-            EnvelopeSlider(
-                label = "Glide",
+                label = stringResource(R.string.sound_glide),
                 value = voice.glideSec,
                 range = 0f..0.5f,
                 isSeconds = true,
                 onChange = { onVoice(voice.copy(glideSec = it)) },
+                info = InfoCopy(R.string.info_glide_title, R.string.info_glide_body),
             )
             EnvelopeSlider(
-                label = "Poly Comp",
-                value = polyComp,
+                label = stringResource(R.string.sound_drive),
+                value = drive,
                 range = 0f..1f,
                 isSeconds = false,
-                onChange = onPolyComp,
+                onChange = onDrive,
+                info = InfoCopy(R.string.info_drive_title, R.string.info_drive_body),
                 valueFormatter = { v -> "%d%%".format((v * 100f).toInt()) },
             )
+            ExpandableSection(
+                expanded = advancedExpanded,
+                onToggle = onAdvancedToggle,
+                label = stringResource(R.string.sound_advanced),
+            ) {
+                EnvelopeSlider(
+                    label = stringResource(R.string.sound_velocity),
+                    value = voice.velocitySensitivity,
+                    range = 0f..1f,
+                    isSeconds = false,
+                    onChange = { onVoice(voice.copy(velocitySensitivity = it)) },
+                    info = InfoCopy(R.string.info_velocity_title, R.string.info_velocity_body),
+                )
+                EnvelopeSlider(
+                    label = stringResource(R.string.sound_poly_comp),
+                    value = polyComp,
+                    range = 0f..1f,
+                    isSeconds = false,
+                    onChange = onPolyComp,
+                    info = InfoCopy(R.string.info_poly_comp_title, R.string.info_poly_comp_body),
+                    valueFormatter = { v -> "%d%%".format((v * 100f).toInt()) },
+                )
+                EnvelopeSlider(
+                    label = stringResource(R.string.sound_headroom),
+                    value = headroom,
+                    range = 0.5f..1.5f,
+                    isSeconds = false,
+                    onChange = onHeadroom,
+                    info = InfoCopy(R.string.info_headroom_title, R.string.info_headroom_body),
+                    valueFormatter = { v -> "%.2f×".format(v) },
+                )
+                PolyphonyStepper(
+                    value = maxPolyphony,
+                    onChange = onMaxPolyphony,
+                )
+            }
         }
+    }
+}
+
+/**
+ * Stepper for the active-voice cap. Discrete options keep the user from
+ * landing on awkward values; the cap maps directly to CPU headroom and
+ * the maximum number of voices that can stack into the limiter.
+ */
+@Composable
+private fun PolyphonyStepper(
+    value: Int,
+    onChange: (Int) -> Unit,
+) {
+    val options = listOf(4, 8, 12, 16)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.sound_max_polyphony),
+            modifier = Modifier.width(72.dp),
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            options.forEach { n ->
+                val selected = value == n
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        .clickable { onChange(n) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = n.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
+            }
+        }
+        InfoIconButton(
+            info = InfoCopy(R.string.info_max_polyphony_title, R.string.info_max_polyphony_body),
+        )
     }
 }

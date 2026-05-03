@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
@@ -24,15 +21,14 @@ import io.github.ranzlappen.synthpiano.data.ChordQuality
 import io.github.ranzlappen.synthpiano.ui.components.GlassCard
 
 /**
- * The chord-modifier strip historically pinned to the top of the PERFORM
- * tab: LOCK (sticky) and SHIFT (momentary) chord-modifier rows plus zoom
- * +/- buttons. Now hostable in any layout panel via
- * [io.github.ranzlappen.synthpiano.data.ModifierPanel] — the show* flags
- * let layouts hide individual sub-controls.
+ * The chord-modifier strip pinned to a layout panel: Sticky (was "LOCK")
+ * and Momentary (was "SHIFT") chord-modifier rows plus zoom +/- buttons.
  *
- * The body is vertically scrollable and the LOCK/SHIFT rows wrap their
- * pills via [androidx.compose.foundation.layout.FlowRow], so every button
- * stays reachable even when the panel is shrunk to a tight container.
+ * The two row variants are now distinguished by colour rather than text
+ * labels — see [PillVariantLegend] at the top of the strip for the
+ * mapping. Pill heights scale to fill the available container vertical
+ * space, so the strip never needs to scroll: it gets taller pills when
+ * given more room and tighter pills when squeezed.
  */
 @Composable
 fun PerformModifierStrip(
@@ -65,30 +61,34 @@ fun PerformModifierStrip(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.weight(1f).fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                PillVariantLegend(
+                    stickyLabel = stringResource(R.string.modifier_legend_sticky),
+                    momentaryLabel = stringResource(R.string.modifier_legend_momentary),
+                    modifier = Modifier.padding(start = 2.dp),
+                )
                 if (showLock) {
                     ChordModifierRow(
-                        label = "LOCK",
+                        variant = PillVariant.Sticky,
                         qualities = qualities,
                         inversions = inversions,
                         selected = sticky,
                         inversion = stickyInv,
+                        modifier = Modifier.weight(1f),
                         onToggle = onStickyToggle,
                         onInversionToggle = onStickyInvToggle,
                     )
                 }
                 if (showShift) {
                     ChordModifierRow(
-                        label = "SHIFT",
+                        variant = PillVariant.Momentary,
                         qualities = qualities,
                         inversions = inversions,
                         selected = held,
                         inversion = heldInv,
-                        momentary = true,
+                        modifier = Modifier.weight(1f),
                         onPress = onShiftPress,
                         onRelease = onShiftRelease,
                         onInversionPress = onShiftInvPress,

@@ -65,11 +65,36 @@ public:
         glideSec_.store(s, std::memory_order_relaxed);
     }
 
+    void setDrive(float d) {
+        mod_.drive.store(d, std::memory_order_relaxed);
+    }
+
     // Polyphonic compensation amount in [0, 1]. 0 = sum voices linearly
     // (legacy, easy to clip on chords); 1 = scale by 1/sqrt(N) where N is
     // active voice count (constant perceived loudness across chord sizes).
     void setPolyCompensation(float v) {
         polyComp_.store(v, std::memory_order_relaxed);
+    }
+
+    // Pre-limiter input gain. 1.0 (default) feeds the master mix straight
+    // into the tanh limiter; <1.0 backs off for cleaner peaks; >1.0 drives
+    // the limiter for warmth at the cost of soft saturation.
+    void setHeadroom(float v) {
+        headroom_.store(v, std::memory_order_relaxed);
+    }
+
+    // Active-voice cap. Clamped to [1, kMaxVoices]. Voices indexed at or
+    // above the cap are never allocated by findFreeVoice.
+    void setMaxPolyphony(int32_t n) {
+        if (n < 1) n = 1;
+        if (n > kMaxVoices) n = kMaxVoices;
+        maxActiveVoices_.store(n, std::memory_order_relaxed);
+    }
+
+    // Diagnostic: count of NoteEvents dropped because the SPSC ring was
+    // full when tryPost ran. Reading does not reset.
+    uint32_t eventDropCount() const {
+        return eventDropCount_.load(std::memory_order_relaxed);
     }
 
     int32_t sampleRate() const { return sampleRate_.load(std::memory_order_relaxed); }
@@ -112,11 +137,12 @@ private:
     void applyEvent(const NoteEvent& e);
     Voice* findFreeVoice(int32_t midiNote);
 
-    static constexpr int32_t kEventQueueSize = 256;        // power of two
+    static constexpr int32_t kEventQueueSize = 1024;       // power of two
     static constexpr int32_t kEventQueueMask = kEventQueueSize - 1;
     std::array<NoteEvent, kEventQueueSize> events_{};
     std::atomic<int32_t> writeIdx_{0};
     std::atomic<int32_t> readIdx_{0};
+    std::atomic<uint32_t> eventDropCount_{0};
 
     static constexpr int32_t kRecordingRingFrames = 1 << 15; // 32k stereo frames (~680ms @ 48k)
     static constexpr int32_t kRecordingRingMask = kRecordingRingFrames - 1;
@@ -141,11 +167,14 @@ private:
     std::array<Voice, kMaxVoices> voices_{};
     AdsrParams adsr_{};
     FilterParams filter_{};
+    VoiceModParams mod_{};
     std::atomic<int32_t> waveform_{static_cast<int32_t>(Waveform::Sine)};
     std::atomic<float> masterAmp_{0.7f};
     std::atomic<float> velocitySensitivity_{1.0f};
     std::atomic<float> glideSec_{0.0f};
     std::atomic<float> polyComp_{1.0f};
+    std::atomic<float> headroom_{1.0f};
+    std::atomic<int32_t> maxActiveVoices_{kMaxVoices};
     std::atomic<int32_t> sampleRate_{48000};
     std::atomic<float> peak_{0.0f};
     uint64_t voiceTickCount_{0};  // monotonic for voice age

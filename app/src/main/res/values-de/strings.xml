@@ -61,6 +61,10 @@
     <string name="score_zoom_in">Vergrößern</string>
     <string name="score_zoom_out">Verkleinern</string>
 
+    <!-- Modifier-Strip-Legende -->
+    <string name="modifier_legend_sticky">Fest</string>
+    <string name="modifier_legend_momentary">Halten</string>
+
     <!-- Settings -->
     <string name="settings_audio">Audio</string>
     <string name="settings_keyboard">Hardware-Tastatur</string>
@@ -127,6 +131,11 @@
     <string name="action_save">Speichern</string>
     <string name="action_apply">Übernehmen</string>
     <string name="action_rename">Umbenennen</string>
+    <string name="action_info">Mehr Infos</string>
+    <string name="action_got_it">Verstanden</string>
+
+    <!-- Sound-Tab — ausklappbarer Erweitert-Bereich -->
+    <string name="sound_advanced">Erweitert</string>
 
     <!-- Keyboard layout editor -->
     <string name="editor_title">Layout bearbeiten</string>
@@ -177,6 +186,43 @@
     <string name="sound_preset_name_label">Name</string>
     <string name="sound_filter_title">Filter</string>
     <string name="sound_voice_title">Stimme</string>
+    <string name="sound_velocity">Anschlag</string>
+    <string name="sound_glide">Glide</string>
+    <string name="sound_poly_comp">Poly-Ausgl.</string>
+    <string name="sound_headroom">Headroom</string>
+    <string name="sound_max_polyphony">Max. Stimmen</string>
+    <string name="sound_curve">Kurve</string>
+    <string name="sound_cutoff">Cutoff</string>
+    <string name="sound_resonance">Resonanz</string>
+    <string name="sound_drive">Drive</string>
+
+    <!-- Slider-Info-Popups (Titel- und Body-Paare) -->
+    <string name="info_attack_title">Attack</string>
+    <string name="info_attack_body">Wie lange der Klang nach dem Tastendruck braucht, um die volle Lautstärke zu erreichen. Kurz = perkussiv und prägnant, lang = sanftes Anschwellen wie bei Streichern oder Pads.</string>
+    <string name="info_decay_title">Decay</string>
+    <string name="info_decay_body">Nach Attack: wie lange der Klang von der vollen Lautstärke auf den Sustain-Pegel abfällt. Kurz = anzupfender Charakter, lang = übergangsloser Sustain.</string>
+    <string name="info_sustain_title">Sustain</string>
+    <string name="info_sustain_body">Lautstärke, solange die Taste gehalten wird (nach Attack und Decay). 0 = Stummschaltung nach Decay, 1 = ewig auf voller Lautstärke.</string>
+    <string name="info_release_title">Release</string>
+    <string name="info_release_body">Wie lange der Klang nach Loslassen der Taste ausklingt. Kurz = abrupter Schnitt, lang = üppige Ausklingfahne.</string>
+    <string name="info_curve_title">Hüllkurvenform</string>
+    <string name="info_curve_body">Formt die Attack- und Release-Rampen. Negative Werte konkav (langsam an, schnell aus), positive konvex (schnell an, langsam aus), 0 ist linear.</string>
+    <string name="info_cutoff_title">Filter-Cutoff</string>
+    <string name="info_cutoff_body">Frequenz, ab der der Tiefpass Höhen abschneidet. Niedriger = dunklerer, basslastiger Klang, höher = volle Brillanz bleibt erhalten.</string>
+    <string name="info_resonance_title">Filter-Resonanz</string>
+    <string name="info_resonance_body">Verstärkt ein schmales Band um die Cutoff-Frequenz. Wenig = Charakter, viel = vokaler, pfeifender oder selbstschwingender Klang.</string>
+    <string name="info_velocity_title">Anschlagsdynamik</string>
+    <string name="info_velocity_body">Wie stark sich härtere Anschläge in Lautstärke übersetzen. 0 = ignoriert (gleichbleibende Lautstärke), 1 = volle Dynamik.</string>
+    <string name="info_glide_title">Glide (Portamento)</string>
+    <string name="info_glide_body">Zeit, die die Tonhöhe braucht, um zur neuen Note zu gleiten. 0 = kein Gleiten, länger = lässiges Lead-Glide zwischen Noten.</string>
+    <string name="info_poly_comp_title">Polyphonie-Ausgleich</string>
+    <string name="info_poly_comp_body">Reduziert die Stimmlautstärke automatisch, wenn mehr Tasten gehalten werden, damit Akkorde nicht überlaut werden. 0 = aus, 1 = konstante wahrgenommene Lautstärke.</string>
+    <string name="info_headroom_title">Headroom</string>
+    <string name="info_headroom_body">Pre-Limiter-Eingangspegel. Unter 1,0 = sauberere Spitzen, über 1,0 = warme Tanh-Sättigung. Der Ausgang ist immer begrenzt — Klarheit gegen Charakter ohne Clipping.</string>
+    <string name="info_max_polyphony_title">Max. Stimmen</string>
+    <string name="info_max_polyphony_body">Maximale Anzahl gleichzeitiger Noten. Senken reduziert CPU und stapelbedingte Trübung; bei Überschreitung wird die älteste Note entfernt.</string>
+    <string name="info_drive_title">Drive</string>
+    <string name="info_drive_body">Pre-Filter-Wellenformer. 0 ist clean; Aufdrehen erzeugt warme röhrenartige Verzerrung bei niedrigen Werten, härteren Grit bei hohen. Sitzt zwischen Oszillator und Filter — der Filter bändigt die Schärfe.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Neue Taste binden</string>

@@ -61,6 +61,10 @@
     <string name="score_zoom_in">Agrandir</string>
     <string name="score_zoom_out">Réduire</string>
 
+    <!-- Légende de la barre de modificateurs -->
+    <string name="modifier_legend_sticky">Verrou</string>
+    <string name="modifier_legend_momentary">Maintenir</string>
+
     <!-- Settings -->
     <string name="settings_audio">Audio</string>
     <string name="settings_keyboard">Clavier matériel</string>
@@ -127,6 +131,11 @@
     <string name="action_save">Enregistrer</string>
     <string name="action_apply">Appliquer</string>
     <string name="action_rename">Renommer</string>
+    <string name="action_info">Plus d\'infos</string>
+    <string name="action_got_it">Compris</string>
+
+    <!-- Onglet Son — section avancée repliable -->
+    <string name="sound_advanced">Avancé</string>
 
     <!-- Keyboard layout editor -->
     <string name="editor_title">Modifier la disposition</string>
@@ -177,6 +186,43 @@
     <string name="sound_preset_name_label">Nom</string>
     <string name="sound_filter_title">Filtre</string>
     <string name="sound_voice_title">Voix</string>
+    <string name="sound_velocity">Vélocité</string>
+    <string name="sound_glide">Glide</string>
+    <string name="sound_poly_comp">Comp. poly</string>
+    <string name="sound_headroom">Marge</string>
+    <string name="sound_max_polyphony">Voix max.</string>
+    <string name="sound_curve">Courbe</string>
+    <string name="sound_cutoff">Coupure</string>
+    <string name="sound_resonance">Résonance</string>
+    <string name="sound_drive">Drive</string>
+
+    <!-- Pop-ups d\'information des curseurs -->
+    <string name="info_attack_title">Attaque</string>
+    <string name="info_attack_body">Temps que met le son à atteindre son volume maximal après l\'appui sur la touche. Court = percussif et incisif, long = montée lente comme des cordes ou des nappes.</string>
+    <string name="info_decay_title">Decay</string>
+    <string name="info_decay_body">Après l\'Attaque, temps mis pour descendre du volume max au niveau de Sustain. Decay court = caractère pincé, long = transition douce vers le sustain.</string>
+    <string name="info_sustain_title">Sustain</string>
+    <string name="info_sustain_body">Volume maintenu tant que la touche est enfoncée (après Attaque et Decay). 0 = silence après le decay ; 1 = volume max maintenu indéfiniment.</string>
+    <string name="info_release_title">Release</string>
+    <string name="info_release_body">Temps de fondu vers le silence après le relâchement de la touche. Court = coupure brutale, long = traîne luxuriante.</string>
+    <string name="info_curve_title">Courbe d\'enveloppe</string>
+    <string name="info_curve_body">Façonne les rampes d\'Attaque et de Release. Négatif = concave (lent puis rapide), positif = convexe (rapide puis lent), 0 = linéaire.</string>
+    <string name="info_cutoff_title">Fréquence de coupure</string>
+    <string name="info_cutoff_body">Fréquence au-delà de laquelle le filtre passe-bas atténue les hautes fréquences. Plus basse = son plus sombre, plus haute = brillance complète.</string>
+    <string name="info_resonance_title">Résonance du filtre</string>
+    <string name="info_resonance_body">Rehausse une bande étroite autour de la fréquence de coupure. Un peu = caractère, beaucoup = qualité vocale, sifflante ou auto-oscillante.</string>
+    <string name="info_velocity_title">Sensibilité à la vélocité</string>
+    <string name="info_velocity_body">Mesure dans laquelle les appuis plus forts donnent des notes plus fortes. 0 = ignorée (volume constant), 1 = dynamique complète.</string>
+    <string name="info_glide_title">Glide (portamento)</string>
+    <string name="info_glide_body">Temps mis par la hauteur pour glisser vers la nouvelle note. 0 = pas de glissement, plus long = glide nonchalant entre notes.</string>
+    <string name="info_poly_comp_title">Comp. polyphonie</string>
+    <string name="info_poly_comp_body">Réduit automatiquement le volume des voix quand plusieurs touches sont tenues pour éviter des accords explosifs. 0 = désactivé ; 1 = sonie perçue constante.</string>
+    <string name="info_headroom_title">Marge</string>
+    <string name="info_headroom_body">Gain d\'entrée avant le limiteur. Sous 1,0 = pics plus nets ; au-dessus de 1,0 = saturation tanh chaleureuse. La sortie reste toujours bornée — clarté ou caractère sans clipping.</string>
+    <string name="info_max_polyphony_title">Voix max.</string>
+    <string name="info_max_polyphony_body">Nombre maximal de notes simultanées. Baisser réduit le CPU et évite la confusion par empilement ; la note la plus ancienne est retirée au-delà de la limite.</string>
+    <string name="info_drive_title">Drive</string>
+    <string name="info_drive_body">Façonneur d\'onde avant filtre. 0 = clair ; monter produit une saturation chaude type lampe aux valeurs basses, et un grain plus dur aux valeurs hautes. Placé entre l\'oscillateur et le filtre, qui continue de dompter l\'âpreté.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Associer une nouvelle touche</string>

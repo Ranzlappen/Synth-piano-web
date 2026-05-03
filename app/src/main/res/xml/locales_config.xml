@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Per-app language config. Required by Android 13+ so the system knows
+  which locales the app supports and surfaces the language picker in
+  Settings → Apps → Synth Piano → Language. Must mirror the set of
+  values-<locale>/strings.xml folders in res/.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="de" />
+    <locale android:name="es" />
+    <locale android:name="fr" />
+</locale-config>

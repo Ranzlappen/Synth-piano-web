@@ -4,9 +4,20 @@
 #include "filter.h"
 #include "oscillator.h"
 
+#include <atomic>
 #include <cstdint>
 
 namespace synthpiano {
+
+/**
+ * Engine-wide voice modifiers shared across all voices. Atomic so the
+ * UI thread can update values lock-free; voices read once per block in
+ * their render loop. Defaults make the modifiers no-ops so existing
+ * presets sound identical until the user touches a slider.
+ */
+struct VoiceModParams {
+    std::atomic<float> drive{0.0f};         // 0..1 — pre-filter tanh saturation
+};
 
 class Voice {
 public:
@@ -19,7 +30,7 @@ public:
 
     // Render N samples into out[], summing (so callers can mix many voices).
     void renderAdd(float* out, int32_t numFrames, const AdsrParams& adsr,
-                   FilterParams& filter);
+                   FilterParams& filter, VoiceModParams& mod);
 
     bool isActive() const { return envelope_.isActive(); }
     int32_t midiNote() const { return midiNote_; }

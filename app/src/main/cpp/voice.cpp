@@ -59,7 +59,7 @@ void Voice::hardKill() {
 }
 
 void Voice::renderAdd(float* out, int32_t numFrames, const AdsrParams& adsr,
-                      FilterParams& filter) {
+                      FilterParams& filter, VoiceModParams& mod) {
     if (!envelope_.isActive()) return;
 
     // Recompute filter coefficients once per audio block. Cheap, no allocation.
@@ -68,6 +68,14 @@ void Voice::renderAdd(float* out, int32_t numFrames, const AdsrParams& adsr,
 
     // Velocity-sensitivity gain: lerp(1.0, velocity, sensitivity).
     const float gain = 1.0f + velocitySensitivity_ * (velocity_ - 1.0f);
+
+    // Drive: pre-filter tanh saturation. depth=0 is a true bypass (driveAmount==1.0
+    // and tanh(x) ≈ x for small x); depth=1 yields a 5x pre-gain into tanh, giving
+    // distinctly distorted character. Read once per block to avoid per-sample
+    // atomic ops.
+    const float drive = mod.drive.load(std::memory_order_relaxed);
+    const float driveAmount = 1.0f + drive * 4.0f;
+    const bool driveActive = drive > 1e-3f;
 
     for (int32_t i = 0; i < numFrames; ++i) {
         if (freqDelta_ != 0.0f) {
@@ -80,7 +88,8 @@ void Voice::renderAdd(float* out, int32_t numFrames, const AdsrParams& adsr,
             osc_.setFrequency(currentFreq_);
         }
         const float env = envelope_.tick(adsr);
-        const float oscSample = osc_.tick();
+        float oscSample = osc_.tick();
+        if (driveActive) oscSample = std::tanh(oscSample * driveAmount);
         const float filtered = filter_.tick(oscSample);
         out[i] += filtered * env * gain;
     }
