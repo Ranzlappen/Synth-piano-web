@@ -23,6 +23,7 @@ data class SoundPreset(
     val glideSec: Float = 0f,
     val masterAmp: Float = 0.7f,
     val polyCompensation: Float = 1f,
+    val drive: Float = 0f,
     val builtin: Boolean = false,
 ) {
     fun adsr(): Adsr = Adsr(

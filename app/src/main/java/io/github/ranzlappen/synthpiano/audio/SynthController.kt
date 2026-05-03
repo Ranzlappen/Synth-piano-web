@@ -54,6 +54,9 @@ class SynthController(private val engine: NativeSynth) {
     private val _voiceShaping = MutableStateFlow(VoiceShaping())
     val voiceShaping: StateFlow<VoiceShaping> = _voiceShaping.asStateFlow()
 
+    private val _drive = MutableStateFlow(0f)
+    val drive: StateFlow<Float> = _drive.asStateFlow()
+
     private val _polyComp = MutableStateFlow(1f)
     val polyComp: StateFlow<Float> = _polyComp.asStateFlow()
 
@@ -97,6 +100,7 @@ class SynthController(private val engine: NativeSynth) {
             engine.setPolyCompensation(_polyComp.value)
             engine.setHeadroom(_headroom.value)
             engine.setMaxPolyphony(_maxPolyphony.value)
+            engine.setDrive(_drive.value)
         }
     }
 
@@ -211,6 +215,12 @@ class SynthController(private val engine: NativeSynth) {
         val safe = n.coerceIn(1, NativeSynth.MAX_VOICES)
         _maxPolyphony.value = safe
         engine.setMaxPolyphony(safe)
+    }
+
+    fun setDrive(d: Float) {
+        val safe = d.coerceIn(0f, 1f)
+        _drive.value = safe
+        engine.setDrive(safe)
     }
 
     fun engine(): NativeSynth = engine

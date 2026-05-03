@@ -194,6 +194,7 @@
     <string name="sound_curve">Curva</string>
     <string name="sound_cutoff">Corte</string>
     <string name="sound_resonance">Resonancia</string>
+    <string name="sound_drive">Drive</string>
 
     <!-- Ventanas emergentes de información de los deslizadores -->
     <string name="info_attack_title">Ataque</string>
@@ -220,6 +221,8 @@
     <string name="info_headroom_body">Ganancia previa al limitador. Por debajo de 1,0 = picos más limpios; por encima de 1,0 = saturación tanh cálida. La salida siempre está limitada — claridad o carácter sin recorte.</string>
     <string name="info_max_polyphony_title">Máx. voces</string>
     <string name="info_max_polyphony_body">Número máximo de notas simultáneas. Bajarlo reduce CPU y evita la turbidez por apilamiento; al exceder el tope se descarta la nota más antigua.</string>
+    <string name="info_drive_title">Drive</string>
+    <string name="info_drive_body">Modelador de onda previo al filtro. 0 = limpio; subir genera saturación cálida tipo válvula a valores bajos y distorsión más dura a valores altos. Se sitúa entre el oscilador y el filtro, que sigue domando la aspereza.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Asignar nueva tecla</string>

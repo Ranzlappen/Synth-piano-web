@@ -97,6 +97,12 @@ Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetGlideSec(JNIEnv*
 }
 
 JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetDrive(JNIEnv*, jobject, jlong h,
+                                                                       jfloat d) {
+    if (auto* e = asEngine(h)) e->setDrive(d);
+}
+
+JNIEXPORT void JNICALL
 Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetPolyCompensation(JNIEnv*, jobject,
                                                                                   jlong h, jfloat v) {
     if (auto* e = asEngine(h)) e->setPolyCompensation(v);

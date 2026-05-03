@@ -194,6 +194,7 @@
     <string name="sound_curve">Courbe</string>
     <string name="sound_cutoff">Coupure</string>
     <string name="sound_resonance">Résonance</string>
+    <string name="sound_drive">Drive</string>
 
     <!-- Pop-ups d\'information des curseurs -->
     <string name="info_attack_title">Attaque</string>
@@ -220,6 +221,8 @@
     <string name="info_headroom_body">Gain d\'entrée avant le limiteur. Sous 1,0 = pics plus nets ; au-dessus de 1,0 = saturation tanh chaleureuse. La sortie reste toujours bornée — clarté ou caractère sans clipping.</string>
     <string name="info_max_polyphony_title">Voix max.</string>
     <string name="info_max_polyphony_body">Nombre maximal de notes simultanées. Baisser réduit le CPU et évite la confusion par empilement ; la note la plus ancienne est retirée au-delà de la limite.</string>
+    <string name="info_drive_title">Drive</string>
+    <string name="info_drive_body">Façonneur d\'onde avant filtre. 0 = clair ; monter produit une saturation chaude type lampe aux valeurs basses, et un grain plus dur aux valeurs hautes. Placé entre l\'oscillateur et le filtre, qui continue de dompter l\'âpreté.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Associer une nouvelle touche</string>

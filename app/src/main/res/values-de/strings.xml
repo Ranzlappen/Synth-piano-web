@@ -194,6 +194,7 @@
     <string name="sound_curve">Kurve</string>
     <string name="sound_cutoff">Cutoff</string>
     <string name="sound_resonance">Resonanz</string>
+    <string name="sound_drive">Drive</string>
 
     <!-- Slider-Info-Popups (Titel- und Body-Paare) -->
     <string name="info_attack_title">Attack</string>
@@ -220,6 +221,8 @@
     <string name="info_headroom_body">Pre-Limiter-Eingangspegel. Unter 1,0 = sauberere Spitzen, über 1,0 = warme Tanh-Sättigung. Der Ausgang ist immer begrenzt — Klarheit gegen Charakter ohne Clipping.</string>
     <string name="info_max_polyphony_title">Max. Stimmen</string>
     <string name="info_max_polyphony_body">Maximale Anzahl gleichzeitiger Noten. Senken reduziert CPU und stapelbedingte Trübung; bei Überschreitung wird die älteste Note entfernt.</string>
+    <string name="info_drive_title">Drive</string>
+    <string name="info_drive_body">Pre-Filter-Wellenformer. 0 ist clean; Aufdrehen erzeugt warme röhrenartige Verzerrung bei niedrigen Werten, härteren Grit bei hohen. Sitzt zwischen Oszillator und Filter — der Filter bändigt die Schärfe.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Neue Taste binden</string>

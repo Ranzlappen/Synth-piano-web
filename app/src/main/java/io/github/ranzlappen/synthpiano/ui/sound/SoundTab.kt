@@ -94,6 +94,7 @@ fun SoundTab(
     val polyComp by synth.polyComp.collectAsState()
     val headroom by synth.headroom.collectAsState()
     val maxPolyphony by synth.maxPolyphony.collectAsState()
+    val drive by synth.drive.collectAsState()
     val userPresets by presets.userPresets.collectAsState(initial = emptyList())
     val selectedPresetName by prefs.lastPresetName.collectAsState(initial = null)
     val advExpanded by prefs.advancedExpanded.collectAsState(initial = emptySet())
@@ -165,6 +166,7 @@ fun SoundTab(
                     polyComp = polyComp,
                     headroom = headroom,
                     maxPolyphony = maxPolyphony,
+                    drive = drive,
                     onVoice = { v ->
                         synth.setVelocitySensitivity(v.velocitySensitivity)
                         synth.setGlideSec(v.glideSec)
@@ -172,6 +174,7 @@ fun SoundTab(
                     onPolyComp = synth::setPolyCompensation,
                     onHeadroom = synth::setHeadroom,
                     onMaxPolyphony = synth::setMaxPolyphony,
+                    onDrive = synth::setDrive,
                     advancedExpanded = "voice" in advExpanded,
                     onAdvancedToggle = { onToggleAdvanced("voice") },
                     modifier = Modifier.weight(1f),
@@ -208,6 +211,7 @@ fun SoundTab(
                 polyComp = polyComp,
                 headroom = headroom,
                 maxPolyphony = maxPolyphony,
+                drive = drive,
                 onVoice = { v ->
                     synth.setVelocitySensitivity(v.velocitySensitivity)
                     synth.setGlideSec(v.glideSec)
@@ -215,6 +219,7 @@ fun SoundTab(
                 onPolyComp = synth::setPolyCompensation,
                 onHeadroom = synth::setHeadroom,
                 onMaxPolyphony = synth::setMaxPolyphony,
+                onDrive = synth::setDrive,
                 advancedExpanded = "voice" in advExpanded,
                 onAdvancedToggle = { onToggleAdvanced("voice") },
                 modifier = Modifier.fillMaxWidth().wrapContentHeight(),
@@ -777,10 +782,12 @@ private fun VoiceShapingCard(
     polyComp: Float,
     headroom: Float,
     maxPolyphony: Int,
+    drive: Float,
     onVoice: (VoiceShaping) -> Unit,
     onPolyComp: (Float) -> Unit,
     onHeadroom: (Float) -> Unit,
     onMaxPolyphony: (Int) -> Unit,
+    onDrive: (Float) -> Unit,
     advancedExpanded: Boolean,
     onAdvancedToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -788,7 +795,7 @@ private fun VoiceShapingCard(
     GlassCard(modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.sound_voice_title), style = MaterialTheme.typography.titleMedium)
-            // Basic: a casual user usually only reaches for Glide.
+            // Basic: high-impact voice modifiers a casual user reaches for first.
             EnvelopeSlider(
                 label = stringResource(R.string.sound_glide),
                 value = voice.glideSec,
@@ -796,6 +803,15 @@ private fun VoiceShapingCard(
                 isSeconds = true,
                 onChange = { onVoice(voice.copy(glideSec = it)) },
                 info = InfoCopy(R.string.info_glide_title, R.string.info_glide_body),
+            )
+            EnvelopeSlider(
+                label = stringResource(R.string.sound_drive),
+                value = drive,
+                range = 0f..1f,
+                isSeconds = false,
+                onChange = onDrive,
+                info = InfoCopy(R.string.info_drive_title, R.string.info_drive_body),
+                valueFormatter = { v -> "%d%%".format((v * 100f).toInt()) },
             )
             ExpandableSection(
                 expanded = advancedExpanded,

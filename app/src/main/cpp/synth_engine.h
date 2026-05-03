@@ -65,6 +65,10 @@ public:
         glideSec_.store(s, std::memory_order_relaxed);
     }
 
+    void setDrive(float d) {
+        mod_.drive.store(d, std::memory_order_relaxed);
+    }
+
     // Polyphonic compensation amount in [0, 1]. 0 = sum voices linearly
     // (legacy, easy to clip on chords); 1 = scale by 1/sqrt(N) where N is
     // active voice count (constant perceived loudness across chord sizes).
@@ -163,6 +167,7 @@ private:
     std::array<Voice, kMaxVoices> voices_{};
     AdsrParams adsr_{};
     FilterParams filter_{};
+    VoiceModParams mod_{};
     std::atomic<int32_t> waveform_{static_cast<int32_t>(Waveform::Sine)};
     std::atomic<float> masterAmp_{0.7f};
     std::atomic<float> velocitySensitivity_{1.0f};

@@ -214,7 +214,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(oboe::AudioStream* /*stream*/
     }
 
     for (auto& v : voices_) {
-        v.renderAdd(scratch, numFrames, adsr_, filter_);
+        v.renderAdd(scratch, numFrames, adsr_, filter_, mod_);
     }
 
     const float amp = masterAmp_.load(std::memory_order_relaxed);

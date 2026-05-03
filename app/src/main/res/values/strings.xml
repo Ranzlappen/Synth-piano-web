@@ -194,6 +194,7 @@
     <string name="sound_curve">Curve</string>
     <string name="sound_cutoff">Cutoff</string>
     <string name="sound_resonance">Resonance</string>
+    <string name="sound_drive">Drive</string>
 
     <!-- Slider info popups (title / body pairs) -->
     <string name="info_attack_title">Attack</string>
@@ -220,6 +221,8 @@
     <string name="info_headroom_body">Pre-limiter input gain. Below 1.0 keeps peaks cleaner; above 1.0 drives the limiter for warm tanh saturation. The output is always bounded so this trades clarity for character without ever clipping.</string>
     <string name="info_max_polyphony_title">Max voices</string>
     <string name="info_max_polyphony_body">Maximum number of simultaneous notes. Lowering it reduces CPU and prevents stacking-induced muddiness; the oldest note is dropped when the cap is exceeded.</string>
+    <string name="info_drive_title">Drive</string>
+    <string name="info_drive_body">Pre-filter waveshaper. 0 is clean; turn it up for warm tube-style breakup at low values, harder grit at high values. Sits between the oscillator and the filter, so the filter still tames any harshness.</string>
 
     <!-- Hardware keymap editor -->
     <string name="keymap_bind_new">+ Bind new key</string>

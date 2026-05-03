@@ -62,6 +62,10 @@ class NativeSynth {
     fun setGlideSec(s: Float) =
         nativeSetGlideSec(handle, s.coerceIn(0f, 0.5f))
 
+    /** Pre-filter waveshaper depth, 0 (clean) … 1 (heavy tanh saturation). */
+    fun setDrive(d: Float) =
+        nativeSetDrive(handle, d.coerceIn(0f, 1f))
+
     fun setPolyCompensation(v: Float) =
         nativeSetPolyCompensation(handle, v.coerceIn(0f, 1f))
 
@@ -129,6 +133,7 @@ class NativeSynth {
     private external fun nativeSetFilter(handle: Long, cutoffHz: Float, resonance: Float)
     private external fun nativeSetVelocitySensitivity(handle: Long, v: Float)
     private external fun nativeSetGlideSec(handle: Long, s: Float)
+    private external fun nativeSetDrive(handle: Long, d: Float)
     private external fun nativeSetPolyCompensation(handle: Long, v: Float)
     private external fun nativeSetHeadroom(handle: Long, v: Float)
     private external fun nativeSetMaxPolyphony(handle: Long, n: Int)
