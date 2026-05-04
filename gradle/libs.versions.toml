@@ -13,7 +13,7 @@ datastore = "1.1.1"
 kotlinxSerialization = "1.7.3"
 kotlinxCoroutines = "1.9.0"
 oboe = "1.9.3"
-ktmidi = "0.11.0"
+ktmidi = "0.11.2"
 
 junit = "4.13.2"
 androidxJunit = "1.2.1"
