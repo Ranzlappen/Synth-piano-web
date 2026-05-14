@@ -17,8 +17,24 @@ namespace synthpiano {
 constexpr int32_t kMaxVoices = 16;
 
 // Lock-free SPSC ring of note events for UI -> audio thread.
+// Sustain / Expression / ChannelPressure share the same ring so their
+// ordering relative to NoteOn/NoteOff is preserved during score playback —
+// otherwise a sustain-off delivered via a separate atomic could race with a
+// queued noteOff and the engine would see them in the wrong order.
+//
+// For non-note events the `velocity` slot is reused as the value carrier:
+//   Sustain          → 0.0 (released) or 1.0 (held)
+//   Expression       → 0..1 (CC#11 / 127)
+//   ChannelPressure  → 0..1 (pressure / 127)
 struct NoteEvent {
-    enum class Kind : int8_t { NoteOn, NoteOff, AllNotesOff };
+    enum class Kind : int8_t {
+        NoteOn,
+        NoteOff,
+        AllNotesOff,
+        Sustain,
+        Expression,
+        ChannelPressure,
+    };
     Kind kind = Kind::NoteOff;
     int8_t midiNote = 0;
     float velocity = 0.0f;
@@ -37,6 +53,9 @@ public:
     bool postNoteOn(int32_t midiNote, float velocity);
     bool postNoteOff(int32_t midiNote);
     bool postAllNotesOff();
+    bool postSustain(bool down);
+    bool postExpression(float value);          // 0..1
+    bool postChannelPressure(float value);     // 0..1
 
     void setWaveform(Waveform w) { waveform_.store(static_cast<int32_t>(w), std::memory_order_relaxed); }
     void setMasterAmp(float a) { masterAmp_.store(a, std::memory_order_relaxed); }
@@ -185,6 +204,8 @@ private:
     uint64_t voiceTickCount_{0};  // monotonic for voice age
     float lastTargetHz_{440.0f};  // audio-thread only; previous note's freq for glide
     float polyGainSmoothed_{1.0f}; // audio-thread only; one-pole smoother for voice-count gain
+    // Sustain pedal state. Audio-thread-only — flipped by drainEvents().
+    bool sustainHeld_{false};
 };
 
 } // namespace synthpiano

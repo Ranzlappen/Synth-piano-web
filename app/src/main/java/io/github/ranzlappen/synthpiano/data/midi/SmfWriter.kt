@@ -90,7 +90,25 @@ object SmfWriter {
             )
         }
 
-        // Non-note events (CC / PC / pitch bend / time sig / etc.).
+        // Typed control events (sustain, expression, channel pressure). The
+        // reader pulls these out of [nonNoteEvents] into their typed list, so
+        // the writer is the sole source for emitting them — no double-write.
+        for (c in score.controlEvents) {
+            val ch = c.channel and 0x0F
+            val value = c.value.coerceIn(0, 127)
+            val msg = when (c.kind) {
+                ControlKind.SUSTAIN -> Midi1SimpleMessage(0xB0 or ch, 64, value)
+                ControlKind.EXPRESSION -> Midi1SimpleMessage(0xB0 or ch, 11, value)
+                // Channel pressure is a 2-byte message (status + value); the
+                // second data byte is ignored by SMF readers but we pass 0
+                // for cleanliness.
+                ControlKind.CHANNEL_PRESSURE -> Midi1SimpleMessage(0xD0 or ch, value, 0)
+            }
+            out += TimedEvent(c.tick.coerceAtLeast(0), PRIO_OTHER, msg)
+        }
+
+        // Non-note events (PC / pitch bend / time sig / etc., plus any CCs
+        // the reader didn't promote to a typed ControlEvent).
         for (e in score.nonNoteEvents) {
             // Skip End Of Track copies — we always synthesise our own at the end.
             if (e.statusByte == 0xFF && e.metaType == 0x2F) continue

@@ -27,6 +27,7 @@ void Voice::noteOn(int32_t midiNote, float velocity, Waveform wf, const AdsrPara
     midiNote_ = midiNote;
     velocity_ = velocity;
     velocitySensitivity_ = velocitySensitivity;
+    sustained_ = false;  // retrigger clears any held-by-pedal state
     targetFreq_ = midiNoteToHz(midiNote);
     if (glideSec > 0.0001f && prevHz > 0.0f && prevHz != targetFreq_) {
         currentFreq_ = prevHz;
@@ -61,7 +62,15 @@ void Voice::renderAdd(float* out, int32_t numFrames, const AdsrParams& adsr,
                          filter.resonance.load(std::memory_order_relaxed));
 
     // Velocity-sensitivity gain: lerp(1.0, velocity, sensitivity).
-    const float gain = 1.0f + velocitySensitivity_ * (velocity_ - 1.0f);
+    const float velocityGain = 1.0f + velocitySensitivity_ * (velocity_ - 1.0f);
+
+    // Expression (CC#11) and channel aftertouch fold in here as continuous
+    // gain modulators. Read once per block (no per-sample atomic ops). Fixed
+    // aftertouch sensitivity of 0.5 — pressure 0 = neutral, pressure 1 = +50%.
+    constexpr float kPressureSensitivity = 0.5f;
+    const float expression = mod.expression.load(std::memory_order_relaxed);
+    const float pressure = mod.channelPressure.load(std::memory_order_relaxed);
+    const float gain = velocityGain * expression * (1.0f + kPressureSensitivity * pressure);
 
     // Drive: pre-filter tanh saturation. depth=0 is a true bypass (driveAmount==1.0
     // and tanh(x) ≈ x for small x); depth=1 yields a 5x pre-gain into tanh, giving

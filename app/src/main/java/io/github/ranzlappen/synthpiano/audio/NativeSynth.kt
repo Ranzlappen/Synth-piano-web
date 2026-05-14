@@ -42,6 +42,21 @@ class NativeSynth {
 
     fun allNotesOff() = nativeAllNotesOff(handle)
 
+    /**
+     * Sustain pedal latch. While held, incoming note-offs are deferred to
+     * their voices' release stage; releasing the pedal triggers the
+     * deferred releases. Idempotent.
+     */
+    fun postSustain(down: Boolean) = nativePostSustain(handle, down)
+
+    /** Expression (CC#11) as a continuous gain multiplier in [0, 1]. */
+    fun setExpression(value: Float) =
+        nativePostExpression(handle, value.coerceIn(0f, 1f))
+
+    /** Channel aftertouch (status 0xD0) in [0, 1]. */
+    fun setChannelPressure(value: Float) =
+        nativePostChannelPressure(handle, value.coerceIn(0f, 1f))
+
     fun setWaveform(w: Waveform) = nativeSetWaveform(handle, w.ordinal)
 
     fun setAdsr(attackSec: Float, decaySec: Float, sustain: Float, releaseSec: Float) =
@@ -132,6 +147,9 @@ class NativeSynth {
     private external fun nativeNoteOn(handle: Long, midiNote: Int, velocity: Float)
     private external fun nativeNoteOff(handle: Long, midiNote: Int)
     private external fun nativeAllNotesOff(handle: Long)
+    private external fun nativePostSustain(handle: Long, down: Boolean)
+    private external fun nativePostExpression(handle: Long, value: Float)
+    private external fun nativePostChannelPressure(handle: Long, value: Float)
 
     private external fun nativeSetWaveform(handle: Long, type: Int)
     private external fun nativeSetAdsr(

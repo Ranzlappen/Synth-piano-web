@@ -238,6 +238,9 @@ fun MidiEditorPane(
                             if (selectedIndex == idx) selectedIndex = null
                         }
                     },
+                    onControlEventsChange = { newList ->
+                        onScoreChange(s.copy(controlEvents = newList.toMutableList()))
+                    },
                     zoomX = zoomX,
                     zoomY = zoomY,
                     onZoomChange = { x, y -> zoomX = x; zoomY = y },

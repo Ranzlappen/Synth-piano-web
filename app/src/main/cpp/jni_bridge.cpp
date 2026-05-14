@@ -55,6 +55,24 @@ Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeAllNotesOff(JNIEnv*
 }
 
 JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativePostSustain(JNIEnv*, jobject, jlong h,
+                                                                          jboolean down) {
+    if (auto* e = asEngine(h)) e->postSustain(down == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativePostExpression(JNIEnv*, jobject, jlong h,
+                                                                             jfloat v) {
+    if (auto* e = asEngine(h)) e->postExpression(v);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativePostChannelPressure(JNIEnv*, jobject,
+                                                                                  jlong h, jfloat v) {
+    if (auto* e = asEngine(h)) e->postChannelPressure(v);
+}
+
+JNIEXPORT void JNICALL
 Java_io_github_ranzlappen_synthpiano_audio_NativeSynth_nativeSetWaveform(JNIEnv*, jobject, jlong h,
                                                                           jint wf) {
     if (auto* e = asEngine(h)) e->setWaveform(static_cast<Waveform>(wf));

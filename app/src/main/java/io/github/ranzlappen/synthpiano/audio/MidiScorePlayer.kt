@@ -1,5 +1,6 @@
 package io.github.ranzlappen.synthpiano.audio
 
+import io.github.ranzlappen.synthpiano.data.midi.ControlKind
 import io.github.ranzlappen.synthpiano.data.midi.MidiScore
 import io.github.ranzlappen.synthpiano.data.midi.MidiTiming
 import io.github.ranzlappen.synthpiano.data.midi.TempoEvent
@@ -48,7 +49,7 @@ class MidiScorePlayer(
      */
     fun start(score: MidiScore, tempoOverrideBpm: Int? = null) {
         stop()
-        if (score.notes.isEmpty()) return
+        if (score.notes.isEmpty() && score.controlEvents.isEmpty()) return
 
         val tempoMap = if (tempoOverrideBpm != null) {
             listOf(TempoEvent(0, MidiTiming.bpmToMicrosPerQuarter(tempoOverrideBpm)))
@@ -73,10 +74,22 @@ class MidiScorePlayer(
                     when (ev.kind) {
                         EventKind.NoteOn -> synth.noteOn(
                             ev.midi,
-                            velocity = ev.velocity / 127f,
+                            velocity = ev.value / 127f,
                             source = NoteSource.SCORE,
                         )
                         EventKind.NoteOff -> synth.noteOff(ev.midi)
+                        EventKind.Sustain -> synth.setSustainPedal(
+                            down = ev.value >= 64,
+                            source = NoteSource.SCORE,
+                        )
+                        EventKind.Expression -> synth.setExpression(
+                            value = ev.value / 127f,
+                            source = NoteSource.SCORE,
+                        )
+                        EventKind.Pressure -> synth.setChannelPressure(
+                            value = ev.value / 127f,
+                            source = NoteSource.SCORE,
+                        )
                     }
                     _currentTick.value = ev.tick
                 }
@@ -84,6 +97,11 @@ class MidiScorePlayer(
                 _currentTick.value = -1
                 _isPlaying.value = false
                 synth.allNotesOff()
+                // Reset modulator state so leaving the editor doesn't strand
+                // a pedal-held or expression-faded engine.
+                synth.setSustainPedal(false, NoteSource.SCORE)
+                synth.setExpression(1f, NoteSource.SCORE)
+                synth.setChannelPressure(0f, NoteSource.SCORE)
             }
         }
     }
@@ -92,31 +110,34 @@ class MidiScorePlayer(
         job?.cancel()
         job = null
         synth.allNotesOff()
+        synth.setSustainPedal(false, NoteSource.SCORE)
+        synth.setExpression(1f, NoteSource.SCORE)
+        synth.setChannelPressure(0f, NoteSource.SCORE)
         _currentTick.value = -1
         _isPlaying.value = false
     }
 
     // ────────────────────────────────────────────────────────────────────
 
-    private enum class EventKind { NoteOn, NoteOff }
+    private enum class EventKind { NoteOn, NoteOff, Sustain, Expression, Pressure }
 
     private data class TimedEvent(
         val tick: Int,
         val micros: Long,
         val kind: EventKind,
         val midi: Int,
-        val velocity: Int,
+        val value: Int,
     )
 
     private fun buildTimeline(score: MidiScore, tempoMap: List<TempoEvent>): List<TimedEvent> {
-        val out = ArrayList<TimedEvent>(score.notes.size * 2)
+        val out = ArrayList<TimedEvent>(score.notes.size * 2 + score.controlEvents.size)
         for (n in score.notes) {
             out += TimedEvent(
                 tick = n.startTicks.coerceAtLeast(0),
                 micros = tickToMicros(n.startTicks, tempoMap, score.ppq),
                 kind = EventKind.NoteOn,
                 midi = n.midi,
-                velocity = n.velocity.coerceIn(1, 127),
+                value = n.velocity.coerceIn(1, 127),
             )
             val endTick = n.startTicks + n.durationTicks
             out += TimedEvent(
@@ -124,15 +145,40 @@ class MidiScorePlayer(
                 micros = tickToMicros(endTick, tempoMap, score.ppq),
                 kind = EventKind.NoteOff,
                 midi = n.midi,
-                velocity = 0,
+                value = 0,
             )
         }
-        // Stable order: time first, then off-before-on at the same tick so a
-        // retrigger of the same key doesn't release the new voice.
+        for (c in score.controlEvents) {
+            val kind = when (c.kind) {
+                ControlKind.SUSTAIN -> EventKind.Sustain
+                ControlKind.EXPRESSION -> EventKind.Expression
+                ControlKind.CHANNEL_PRESSURE -> EventKind.Pressure
+            }
+            out += TimedEvent(
+                tick = c.tick.coerceAtLeast(0),
+                micros = tickToMicros(c.tick, tempoMap, score.ppq),
+                kind = kind,
+                midi = -1,
+                value = c.value.coerceIn(0, 127),
+            )
+        }
+        // Stable order at the same micro tick:
+        //   0 = NoteOff (release outgoing notes first)
+        //   1 = Sustain / Expression / Pressure (apply modulator state before
+        //       the next NoteOn so a re-pedal lands BEFORE retriggering)
+        //   2 = NoteOn  (start incoming notes)
+        // Without this, a sustain-off at the same tick as a re-pedal could
+        // be applied after the down, leaving voices unsustained.
         out.sortWith(
             compareBy(
                 { it.micros },
-                { if (it.kind == EventKind.NoteOff) 0 else 1 },
+                {
+                    when (it.kind) {
+                        EventKind.NoteOff -> 0
+                        EventKind.Sustain, EventKind.Expression, EventKind.Pressure -> 1
+                        EventKind.NoteOn -> 2
+                    }
+                },
             ),
         )
         return out
