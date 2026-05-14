@@ -1,3 +1,5 @@
+[![CI](https://github.com/Ranzlappen/Synth-piano-web/actions/workflows/ci-android.yml/badge.svg)](https://github.com/Ranzlappen/Synth-piano-web/actions/workflows/ci-android.yml)
+
 # Synth Piano (Android)
 
 A Kotlin/Compose port of [Ranzlappen/synth-piano](https://github.com/Ranzlappen/synth-piano), the Python tkinter synth. Touch keyboard, chord pads, score playback, USB-MIDI in, WAV recording. Real-time audio runs through Oboe on a C++ DSP core for sub-20ms latency.
