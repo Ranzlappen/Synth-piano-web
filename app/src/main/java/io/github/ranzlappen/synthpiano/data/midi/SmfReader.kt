@@ -76,6 +76,7 @@ object SmfReader {
         val tempoMap = mutableListOf<TempoEvent>()
         val notes = mutableListOf<Note>()
         val nonNote = mutableListOf<RawEvent>()
+        val controls = mutableListOf<ControlEvent>()
         var title: String? = null
 
         // Pending note-ons keyed by (channel, midi). FIFO so overlapping notes
@@ -148,8 +149,23 @@ object SmfReader {
                     val payload = (msg as? Midi1CompoundMessage)?.let { extractPayload(it) }
                     nonNote += RawEvent(absTick, statusByte, -1, data1, data2, payload)
                 }
+                statusNibble == 0xB0 && data1 == 64 -> {
+                    // Sustain pedal (CC#64): normalise to 0 / 127 so the
+                    // editor's hold-segment logic is binary-stable across
+                    // hardware that emits half-pedal values.
+                    val v = if (data2 >= 64) 127 else 0
+                    controls += ControlEvent(absTick, channel, ControlKind.SUSTAIN, v)
+                }
+                statusNibble == 0xB0 && data1 == 11 -> {
+                    // Expression (CC#11).
+                    controls += ControlEvent(absTick, channel, ControlKind.EXPRESSION, data2 and 0x7F)
+                }
+                statusNibble == 0xD0 -> {
+                    // Channel Pressure (aftertouch). Value lives in data1.
+                    controls += ControlEvent(absTick, channel, ControlKind.CHANNEL_PRESSURE, data1 and 0x7F)
+                }
                 else -> {
-                    // Other channel messages (CC, PC, pitch bend, aftertouch, etc.)
+                    // Other channel messages (CC, PC, pitch bend, poly aftertouch, etc.)
                     // Re-serialise the original status byte (with channel) so the writer can replay it verbatim.
                     nonNote += RawEvent(absTick, statusByte, -1, data1, data2, null)
                 }
@@ -167,6 +183,7 @@ object SmfReader {
         }
         tempoMap.sortBy { it.tick }
         nonNote.sortBy { it.tick }
+        controls.sortBy { it.tick }
 
         return MidiScore(
             ppq = ppq,
@@ -174,6 +191,7 @@ object SmfReader {
             tempoMap = tempoMap,
             notes = notes,
             nonNoteEvents = nonNote,
+            controlEvents = controls,
         )
     }
 

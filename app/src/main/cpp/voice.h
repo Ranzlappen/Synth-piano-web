@@ -17,6 +17,10 @@ namespace synthpiano {
  */
 struct VoiceModParams {
     std::atomic<float> drive{0.0f};         // 0..1 — pre-filter tanh saturation
+    // CC#11 expression: continuous gain multiplier, 0..1. Default 1.0 = neutral.
+    std::atomic<float> expression{1.0f};
+    // Channel aftertouch: 0..1. Adds 0..pressureSensitivity gain on top of velocity.
+    std::atomic<float> channelPressure{0.0f};
 };
 
 class Voice {
@@ -27,6 +31,19 @@ public:
                 float glideSec, float velocitySensitivity, float prevHz);
     void noteOff(const AdsrParams& adsr);
     void hardKill();  // immediate cutoff for voice stealing
+
+    // Sustain pedal: while the pedal is held, the engine calls
+    // markSustained() in place of noteOff(). When the pedal lifts, the
+    // engine walks all voices and calls releaseIfSustained() to release
+    // those marked.
+    void markSustained() { sustained_ = true; }
+    bool isSustained() const { return sustained_; }
+    void releaseIfSustained(const AdsrParams& adsr) {
+        if (sustained_) {
+            sustained_ = false;
+            envelope_.noteOff(adsr);
+        }
+    }
 
     // Render N samples into out[], summing (so callers can mix many voices).
     void renderAdd(float* out, int32_t numFrames, const AdsrParams& adsr,
@@ -55,6 +72,9 @@ private:
     float velocitySensitivity_ = 1.0f;
     int32_t midiNote_ = -1;
     uint64_t age_ = 0;
+    // True between noteOff-while-pedal-held and the pedal lifting.
+    // Audio-thread-only state — flipped by the engine's event drain.
+    bool sustained_ = false;
 
     // Glide / portamento (audio-thread only; no atomics).
     float sampleRate_ = 48000.0f;

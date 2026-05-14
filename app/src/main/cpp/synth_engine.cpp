@@ -123,6 +123,27 @@ bool SynthEngine::postAllNotesOff() {
     return tryPost(e);
 }
 
+bool SynthEngine::postSustain(bool down) {
+    NoteEvent e{};
+    e.kind = NoteEvent::Kind::Sustain;
+    e.velocity = down ? 1.0f : 0.0f;
+    return tryPost(e);
+}
+
+bool SynthEngine::postExpression(float value) {
+    NoteEvent e{};
+    e.kind = NoteEvent::Kind::Expression;
+    e.velocity = value;
+    return tryPost(e);
+}
+
+bool SynthEngine::postChannelPressure(float value) {
+    NoteEvent e{};
+    e.kind = NoteEvent::Kind::ChannelPressure;
+    e.velocity = value;
+    return tryPost(e);
+}
+
 void SynthEngine::drainEvents() {
     const int32_t r = readIdx_.load(std::memory_order_relaxed);
     const int32_t w = writeIdx_.load(std::memory_order_acquire);
@@ -192,7 +213,12 @@ void SynthEngine::applyEvent(const NoteEvent& e) {
         case NoteEvent::Kind::NoteOff: {
             for (auto& v : voices_) {
                 if (v.midiNote() == e.midiNote && v.isActive() && !v.isReleasing()) {
-                    v.noteOff(envelope_);
+                    if (sustainHeld_) {
+                        // Pedal is down: defer the release until the pedal lifts.
+                        v.markSustained();
+                    } else {
+                        v.noteOff(envelope_);
+                    }
                 }
             }
             break;
@@ -201,6 +227,34 @@ void SynthEngine::applyEvent(const NoteEvent& e) {
             for (auto& v : voices_) {
                 if (v.isActive()) v.noteOff(envelope_);
             }
+            // Panic also clears the pedal latch so we don't strand the next
+            // batch of voices in a sustained-but-never-released state.
+            sustainHeld_ = false;
+            break;
+        }
+        case NoteEvent::Kind::Sustain: {
+            const bool down = e.velocity >= 0.5f;
+            if (sustainHeld_ && !down) {
+                // Pedal falling edge: release everything that was held.
+                for (auto& v : voices_) {
+                    v.releaseIfSustained(envelope_);
+                }
+            }
+            sustainHeld_ = down;
+            break;
+        }
+        case NoteEvent::Kind::Expression: {
+            float v = e.velocity;
+            if (v < 0.0f) v = 0.0f;
+            if (v > 1.0f) v = 1.0f;
+            mod_.expression.store(v, std::memory_order_relaxed);
+            break;
+        }
+        case NoteEvent::Kind::ChannelPressure: {
+            float v = e.velocity;
+            if (v < 0.0f) v = 0.0f;
+            if (v > 1.0f) v = 1.0f;
+            mod_.channelPressure.store(v, std::memory_order_relaxed);
             break;
         }
     }

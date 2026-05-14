@@ -105,11 +105,23 @@ private class SynthMidiReceiver(private val synth: SynthController) : MidiReceiv
                     synth.noteOff(note)
                     i += 3
                 }
-                0xB0 -> { // Control Change — CC123 = All Notes Off
+                0xB0 -> { // Control Change
                     if (i + 2 >= count) return
                     val cc = msg[offset + i + 1].toInt() and 0x7F
-                    if (cc == 123) synth.allNotesOff()
+                    val value = msg[offset + i + 2].toInt() and 0x7F
+                    when (cc) {
+                        11 -> synth.setExpression(value / 127f, NoteSource.MIDI)
+                        64 -> synth.setSustainPedal(value >= 64, NoteSource.MIDI)
+                        123 -> synth.allNotesOff()
+                        // Other CCs are ignored at the engine layer today.
+                    }
                     i += 3
+                }
+                0xD0 -> { // Channel Pressure — 2 bytes (status + value)
+                    if (i + 1 >= count) return
+                    val value = msg[offset + i + 1].toInt() and 0x7F
+                    synth.setChannelPressure(value / 127f, NoteSource.MIDI)
+                    i += 2
                 }
                 else -> {
                     // Unhandled: skip a single byte and resync.

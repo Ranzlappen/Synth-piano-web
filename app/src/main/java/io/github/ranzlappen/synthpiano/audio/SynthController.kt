@@ -1,5 +1,6 @@
 package io.github.ranzlappen.synthpiano.audio
 
+import io.github.ranzlappen.synthpiano.data.midi.ControlKind
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,18 @@ data class NoteCaptureEvent(
     val velocity: Float,
     val source: NoteSource,
     val on: Boolean,
+    val tNanos: Long,
+)
+
+/**
+ * Continuous-controller event emitted alongside note events. The engine
+ * interprets sustain pedal as a latch and expression / aftertouch as
+ * gain modulators; the SMF recorder persists each one in the score.
+ */
+data class ControlCaptureEvent(
+    val kind: ControlKind,
+    val value: Float,                 // 0..1
+    val source: NoteSource,
     val tNanos: Long,
 )
 
@@ -85,6 +98,13 @@ class SynthController(private val engine: NativeSynth) {
     )
     val noteEvents: SharedFlow<NoteCaptureEvent> = _noteEvents.asSharedFlow()
 
+    private val _controlEvents = MutableSharedFlow<ControlCaptureEvent>(
+        replay = 0,
+        extraBufferCapacity = 256,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val controlEvents: SharedFlow<ControlCaptureEvent> = _controlEvents.asSharedFlow()
+
     fun start() {
         if (_started.value) return
         if (engine.start()) {
@@ -121,6 +141,12 @@ class SynthController(private val engine: NativeSynth) {
     fun stop() {
         if (!_started.value) return
         engine.allNotesOff()
+        // Sustain pedal latch is cleared by engine.allNotesOff(); also
+        // reset the expression / aftertouch modulators so a restart starts
+        // from neutral instead of inheriting the last session's state.
+        engine.postSustain(false)
+        engine.setExpression(1f)
+        engine.setChannelPressure(0f)
         engine.stop()
         _heldNotes.value = emptySet()
         _heldBySource.value = emptyMap()
@@ -158,8 +184,49 @@ class SynthController(private val engine: NativeSynth) {
 
     fun allNotesOff() {
         engine.allNotesOff()
+        // Engine's AllNotesOff handler clears its own sustain latch; mirror
+        // that here so the next noteOff isn't unexpectedly deferred.
+        engine.postSustain(false)
+        engine.setExpression(1f)
+        engine.setChannelPressure(0f)
         _heldNotes.value = emptySet()
         _heldBySource.value = emptyMap()
+    }
+
+    /**
+     * Sustain pedal latch. Forwarded to the engine and emitted on
+     * [controlEvents] so the SMF recorder can persist it. While the pedal
+     * is held, the engine defers releases for any voice whose noteOff
+     * arrives.
+     */
+    fun setSustainPedal(down: Boolean, source: NoteSource = NoteSource.TOUCH) {
+        engine.postSustain(down)
+        _controlEvents.tryEmit(
+            ControlCaptureEvent(
+                kind = ControlKind.SUSTAIN,
+                value = if (down) 1f else 0f,
+                source = source,
+                tNanos = System.nanoTime(),
+            ),
+        )
+    }
+
+    /** Expression (CC#11) gain modulator in [0, 1]. */
+    fun setExpression(value: Float, source: NoteSource = NoteSource.TOUCH) {
+        val safe = value.coerceIn(0f, 1f)
+        engine.setExpression(safe)
+        _controlEvents.tryEmit(
+            ControlCaptureEvent(ControlKind.EXPRESSION, safe, source, System.nanoTime()),
+        )
+    }
+
+    /** Channel aftertouch (status 0xD0) in [0, 1]. */
+    fun setChannelPressure(value: Float, source: NoteSource = NoteSource.TOUCH) {
+        val safe = value.coerceIn(0f, 1f)
+        engine.setChannelPressure(safe)
+        _controlEvents.tryEmit(
+            ControlCaptureEvent(ControlKind.CHANNEL_PRESSURE, safe, source, System.nanoTime()),
+        )
     }
 
     fun setWaveform(w: Waveform) {

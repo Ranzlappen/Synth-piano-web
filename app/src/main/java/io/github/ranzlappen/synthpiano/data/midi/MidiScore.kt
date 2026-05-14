@@ -24,6 +24,11 @@ data class MidiScore(
     ),
     val notes: MutableList<Note> = mutableListOf(),
     val nonNoteEvents: MutableList<RawEvent> = mutableListOf(),
+    // Sustain (CC#64), expression (CC#11), and channel aftertouch (0xD0).
+    // Promoted out of [nonNoteEvents] because the editor, recorder, and
+    // playback engine all interpret them directly. Everything else still
+    // round-trips opaquely through [nonNoteEvents].
+    val controlEvents: MutableList<ControlEvent> = mutableListOf(),
 ) {
     /** Last absolute tick across all notes and raw events. Used for End Of Track. */
     fun totalTicks(): Int {
@@ -34,6 +39,7 @@ data class MidiScore(
         }
         for (e in nonNoteEvents) if (e.tick > max) max = e.tick
         for (t in tempoMap) if (t.tick > max) max = t.tick
+        for (c in controlEvents) if (c.tick > max) max = c.tick
         return max
     }
 
@@ -67,6 +73,24 @@ data class Note(
 data class TempoEvent(
     val tick: Int,
     val microsPerQuarter: Int,
+)
+
+/**
+ * Kinds of continuous-controller events the editor and engine interpret
+ * directly. Everything else stays in [MidiScore.nonNoteEvents].
+ */
+enum class ControlKind { SUSTAIN, EXPRESSION, CHANNEL_PRESSURE }
+
+/**
+ * A typed continuous-controller event. For [ControlKind.SUSTAIN] the value
+ * is binary (0 = released, 127 = held — we treat anything ≥ 64 as held on
+ * the wire but normalise to 0 / 127 on import to keep round-trip stable).
+ */
+data class ControlEvent(
+    val tick: Int,
+    val channel: Int,           // 0..15
+    val kind: ControlKind,
+    val value: Int,             // 0..127
 )
 
 /**

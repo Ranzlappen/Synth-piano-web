@@ -175,4 +175,72 @@ class SmfReaderWriterTest {
         val parsed = SmfReader.read(SmfWriter.write(MidiScore(ppq = 480)))
         assertNull(parsed.title)
     }
+
+    @Test
+    fun roundTripPreservesSustainPedal() {
+        val original = MidiScore(
+            ppq = 480,
+            notes = mutableListOf(Note(0, 60, 100, 0, 1920)),
+            controlEvents = mutableListOf(
+                ControlEvent(tick = 240, channel = 0, kind = ControlKind.SUSTAIN, value = 127),
+                ControlEvent(tick = 1680, channel = 0, kind = ControlKind.SUSTAIN, value = 0),
+            ),
+        )
+        val parsed = SmfReader.read(SmfWriter.write(original))
+        val sustain = parsed.controlEvents.filter { it.kind == ControlKind.SUSTAIN }
+        assertEquals(2, sustain.size)
+        assertEquals(240, sustain[0].tick)
+        assertEquals(127, sustain[0].value)
+        assertEquals(1680, sustain[1].tick)
+        assertEquals(0, sustain[1].value)
+        // Sustain CCs should not be duplicated in nonNoteEvents — the writer
+        // would otherwise emit each once from controlEvents and once from
+        // nonNoteEvents, producing a four-event round-trip.
+        val ccInRaw = parsed.nonNoteEvents.count {
+            (it.statusByte and 0xF0) == 0xB0 && it.data1 == 64
+        }
+        assertEquals(0, ccInRaw)
+    }
+
+    @Test
+    fun roundTripPreservesExpressionAndAftertouch() {
+        val original = MidiScore(
+            ppq = 480,
+            notes = mutableListOf(Note(0, 60, 100, 0, 960)),
+            controlEvents = mutableListOf(
+                ControlEvent(0, 0, ControlKind.EXPRESSION, 100),
+                ControlEvent(240, 0, ControlKind.EXPRESSION, 50),
+                ControlEvent(480, 0, ControlKind.CHANNEL_PRESSURE, 80),
+            ),
+        )
+        val parsed = SmfReader.read(SmfWriter.write(original))
+        val expr = parsed.controlEvents.filter { it.kind == ControlKind.EXPRESSION }
+            .sortedBy { it.tick }
+        assertEquals(2, expr.size)
+        assertEquals(100, expr[0].value)
+        assertEquals(50, expr[1].value)
+        val pressure = parsed.controlEvents.filter { it.kind == ControlKind.CHANNEL_PRESSURE }
+        assertEquals(1, pressure.size)
+        assertEquals(80, pressure[0].value)
+        assertEquals(480, pressure[0].tick)
+    }
+
+    @Test
+    fun sustainBelowThresholdNormalisesToReleased() {
+        // Hardware that emits half-pedal values should still produce a clean
+        // 0/127 typed event on import.
+        val original = MidiScore(
+            ppq = 480,
+            controlEvents = mutableListOf(
+                ControlEvent(0, 0, ControlKind.SUSTAIN, 63),  // below 64 — counts as released
+                ControlEvent(240, 0, ControlKind.SUSTAIN, 64), // at threshold — held
+            ),
+        )
+        val parsed = SmfReader.read(SmfWriter.write(original))
+        val sustain = parsed.controlEvents.filter { it.kind == ControlKind.SUSTAIN }
+            .sortedBy { it.tick }
+        assertEquals(2, sustain.size)
+        assertEquals(0, sustain[0].value)
+        assertEquals(127, sustain[1].value)
+    }
 }
