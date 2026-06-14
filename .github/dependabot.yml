@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # AGP 8.5.2 is not compatible with Gradle 9.x — the bundled Kotlin
+      # breaks Lint's type resolution (false-positive RememberReturnType
+      # errors). Stay on Gradle 8 until AGP/Kotlin are upgraded together.
+      - dependency-name: "gradle-wrapper"
+        update-types: ["version-update:semver-major"]
     groups:
       androidx:
         patterns:
