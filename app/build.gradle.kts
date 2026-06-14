@@ -17,13 +17,13 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "io.github.ranzlappen.synthpiano"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "io.github.ranzlappen.synthpiano"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Version is injected by CI via -PversionName / -PversionCode from
         // the git tag (or the next-patch bump on main pushes). Local dev
         // falls back to the defaults below so ./gradlew assembleDebug works
@@ -83,10 +83,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -122,6 +118,12 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
