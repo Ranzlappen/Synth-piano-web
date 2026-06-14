@@ -8,6 +8,7 @@ Single-module Android app. Audio runs entirely in C++ on the audio thread; Kotli
 
 * **`app/src/main/java/.../`** (Kotlin) — Compose UI, JNI wrapper, score model, MIDI manager, WAV recorder, hardware keyboard mapper.
 * **`app/src/main/cpp/`** (C++17) — Oboe audio stream callback, 16-voice polyphonic synth, oscillators (sine/square/saw/triangle), ADSR envelope, JNI bridge.
+* **`app/src/main/java/.../ui/dj/`** (Kotlin) — Self-contained two-deck DJ turntable tab. Audio playback uses two Android `MediaPlayer` instances (`DjEngine`), **completely separate** from the Oboe/C++ synth — it does not touch `NativeSynth`, the JNI bridge, or the audio-thread ring. Tracks load via the SAF picker or an optional MediaStore browse list.
 * **`app/src/main/assets/scores/`** — Bundled demo scores as Standard MIDI Files (`.mid`).
 
 ## Build & Development
@@ -32,6 +33,7 @@ Single-module Android app. Audio runs entirely in C++ on the audio thread; Kotli
 * **Package ID is permanent**: `io.github.ranzlappen.synthpiano`. Do not rename without a Play Store migration plan.
 * **Hardware keyboard mapping defaults match the Python source** (ASDFG... white notes, WRTUI... black, `< Y X C V B N M , . -` chord pads). Defaults are stored in code; user remaps live in DataStore.
 * **Recording target is WAV only.** PCM 16-bit stereo at the device's actual sample rate is written to `Context.filesDir/recordings/`. No MP3 encoder dependency.
+* **DJ playback uses Android `MediaPlayer`, never Oboe.** The DJ tab (`ui/dj/`) is intentionally decoupled from the synth engine: two `MediaPlayer` instances, real-time pitch via `PlaybackParams`, crossfader/master via `setVolume`. It must not call into the synth, JNI, or the audio thread. The MediaStore browse list requires `READ_MEDIA_AUDIO` (Android 13+) / `READ_EXTERNAL_STORAGE` (≤32); the SAF picker needs no permission.
 
 ## Deployment & CI/CD
 

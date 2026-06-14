@@ -9,6 +9,16 @@
         android:name="android.software.midi"
         android:required="false" />
 
+    <!--
+      DJ module only. The SAF picker (ACTION_OPEN_DOCUMENT) needs no
+      permission; these gate the optional MediaStore browse list that shows
+      on-device audio with title/duration metadata.
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:name=".SynthApp"
         android:allowBackup="true"
