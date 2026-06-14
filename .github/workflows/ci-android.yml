@@ -48,7 +48,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Need full tag history to compute the next patch version.
           fetch-depth: 0
@@ -96,7 +96,7 @@ jobs:
           echo "Computed: versionName=$VERSION versionCode=$VERSION_CODE shouldRelease=$SHOULD_RELEASE"
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -107,7 +107,7 @@ jobs:
           packages: "platforms;android-35 build-tools;35.0.0 cmake;3.22.1 ndk;27.0.12077973"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
@@ -162,7 +162,7 @@ jobs:
           -PversionCode=${{ steps.version.outputs.version_code }}
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: synth-piano-debug-apk
           path: app/build/outputs/apk/debug/*.apk
@@ -170,7 +170,7 @@ jobs:
           retention-days: 14
 
       - name: Upload release AAB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: synth-piano-release-aab
           path: app/build/outputs/bundle/release/*.aab
@@ -179,7 +179,7 @@ jobs:
 
       - name: Upload release APK
         if: steps.keystore.outputs.signing == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: synth-piano-release-apk
           path: app/build/outputs/apk/release/*.apk
@@ -188,7 +188,7 @@ jobs:
 
       - name: Upload lint report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lint-reports
           path: app/build/reports/lint-results-*.html
@@ -197,7 +197,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unit-test-reports
           path: app/build/reports/tests/testDebugUnitTest/
@@ -220,18 +220,18 @@ jobs:
 
     steps:
       - name: Checkout (for tagging)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Download release AAB
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: synth-piano-release-aab
           path: dist/
 
       - name: Download release APK (if present)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: synth-piano-release-apk
@@ -254,7 +254,7 @@ jobs:
           git push origin "$TAG"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.build.outputs.version_name }}
           name: v${{ needs.build.outputs.version_name }}
