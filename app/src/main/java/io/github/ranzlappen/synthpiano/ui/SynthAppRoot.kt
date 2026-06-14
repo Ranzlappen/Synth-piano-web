@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Piano
@@ -55,6 +56,7 @@ import io.github.ranzlappen.synthpiano.midi.MidiManager
 import io.github.ranzlappen.synthpiano.data.BuiltInLayouts
 import io.github.ranzlappen.synthpiano.ui.components.AppGradientBackground
 import io.github.ranzlappen.synthpiano.ui.components.HeaderStrip
+import io.github.ranzlappen.synthpiano.ui.dj.DjScreen
 import io.github.ranzlappen.synthpiano.ui.onboarding.LayoutOnboardingDialog
 import io.github.ranzlappen.synthpiano.ui.play.PerformTab
 import io.github.ranzlappen.synthpiano.ui.score.AppScoreState
@@ -68,6 +70,7 @@ private enum class Tab(val titleRes: Int) {
     Perform(R.string.nav_perform),
     Sound(R.string.nav_sound),
     Compose(R.string.nav_compose),
+    Dj(R.string.nav_dj),
     Setup(R.string.nav_setup),
 }
 
@@ -163,6 +166,7 @@ fun SynthAppRoot(
                         )
                         Tab.Sound -> SoundTab(synth = synth, prefs = prefs, presets = presets)
                         Tab.Compose -> ComposerTab(synth = synth, prefs = prefs, scoreState = scoreState)
+                        Tab.Dj -> DjScreen(prefs = prefs)
                         Tab.Setup -> SetupTab(
                             synth = synth,
                             prefs = prefs,
@@ -238,6 +242,7 @@ private fun AppRail(
                 Tab.Perform -> Icons.Filled.Piano to "Perform"
                 Tab.Sound -> Icons.Filled.Tune to "Sound"
                 Tab.Compose -> Icons.Filled.LibraryMusic to "Compose"
+                Tab.Dj -> Icons.Filled.Album to "DJ"
                 Tab.Setup -> Icons.Filled.Settings to "Setup"
             }
             NavigationRailItem(
