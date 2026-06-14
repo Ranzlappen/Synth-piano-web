@@ -42,7 +42,7 @@ A Kotlin/Compose port of [Ranzlappen/synth-piano](https://github.com/Ranzlappen/
 ### Prerequisites
 
 - JDK 17 (Temurin recommended)
-- Android SDK with `platform-android-35`, `build-tools-35.0.0`, `cmake 3.22.1`, `ndk 27.0.12077973`
+- Android SDK with `platform-android-36`, `build-tools-36.0.0`, `cmake 3.22.1`, `ndk 27.0.12077973`
 - A real device for serious latency testing (emulators add ~80ms)
 
 ### First-time setup
@@ -85,7 +85,7 @@ adb shell am start -n io.github.ranzlappen.synthpiano/.MainActivity
 
 **Concurrency**: CI cancels superseded runs per PR.
 
-**Runtime versions**: JDK 17, Android SDK 35, NDK r27, Gradle 8.10.2.
+**Runtime versions**: JDK 17, Android SDK 36, NDK r27, Gradle 9.5.1.
 
 **Required secrets** (for release-signed AAB on tags):
 
@@ -102,13 +102,13 @@ To rotate: generate a new keystore, base64-encode it (`base64 -w0 release.keysto
 
 | Layer | Technology | Role | Why |
 | --- | --- | --- | --- |
-| Language | Kotlin 2.0 | App / business logic | Android's primary language |
+| Language | Kotlin 2.3 | App / business logic | Android's primary language |
 | UI | Jetpack Compose + Material 3 | Declarative UI | Best fit for a piano keyboard, theming for free |
-| Audio | Oboe 1.9 + AAudio | Real-time output | Sub-20ms latency, the Google-recommended path |
+| Audio | Oboe 1.10 + AAudio | Real-time output | Sub-20ms latency, the Google-recommended path |
 | DSP | C++17 | Voices, oscillators, envelopes | Audio thread cannot afford the JVM |
 | MIDI | `android.media.midi` | USB MIDI in | First-party, no extra deps |
 | Persistence | `androidx.datastore` | Settings, key map, last score | Modern replacement for SharedPreferences |
-| Build | Gradle 8.10.2 + AGP 8.5 + CMake | Build system | Standard Android toolchain |
+| Build | Gradle 9.5.1 + AGP 9.2 + CMake | Build system | Standard Android toolchain |
 | CI | GitHub Actions | Automated builds | Matches Ranzlappen/repo-standards |
 
 ## Project Structure

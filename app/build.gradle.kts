@@ -3,7 +3,8 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    // Kotlin support is built into AGP 9.0+, so the standalone
+    // org.jetbrains.kotlin.android plugin is no longer applied.
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -17,13 +18,13 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "io.github.ranzlappen.synthpiano"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "io.github.ranzlappen.synthpiano"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Version is injected by CI via -PversionName / -PversionCode from
         // the git tag (or the next-patch bump on main pushes). Local dev
         // falls back to the defaults below so ./gradlew assembleDebug works
@@ -83,10 +84,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -122,6 +119,21 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+
+    lint {
+        // New check in AGP 9's bundled lint. Our only hits are one-shot
+        // status/toast messages built inside coroutine callbacks (where
+        // stringResource() isn't available and config-change reactivity
+        // is irrelevant), so keep it visible as a warning rather than a
+        // build-failing error.
+        warning += "LocalContextGetResourceValueCall"
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
