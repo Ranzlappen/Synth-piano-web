@@ -3,7 +3,8 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    // Kotlin support is built into AGP 9.0+, so the standalone
+    // org.jetbrains.kotlin.android plugin is no longer applied.
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
