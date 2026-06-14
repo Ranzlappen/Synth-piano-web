@@ -56,6 +56,7 @@ private object Keys {
     val HAS_SEEN_LAYOUT_ONBOARDING = booleanPreferencesKey("has_seen_layout_onboarding")
     val LANGUAGE_TAG = stringPreferencesKey("language_tag")
     val ADVANCED_EXPANDED = stringPreferencesKey("advanced_expanded_csv")
+    val DJ_RECENT_JSON = stringPreferencesKey("dj_recent_json")
 }
 
 /**
@@ -118,6 +119,10 @@ class PreferencesRepository(private val context: Context) {
 
     val lastScoreUri: Flow<String?> =
         context.dataStore.data.map { it[Keys.LAST_SCORE_URI] }
+
+    /** Recently loaded DJ tracks, serialized as a JSON list (most recent first). */
+    val djRecentJson: Flow<String?> =
+        context.dataStore.data.map { it[Keys.DJ_RECENT_JSON] }
 
     val tempoBpm: Flow<Int> =
         context.dataStore.data.map { it[Keys.TEMPO_BPM] ?: 120 }
@@ -257,6 +262,8 @@ class PreferencesRepository(private val context: Context) {
     }
 
     suspend fun setTempoBpm(bpm: Int) = edit { it[Keys.TEMPO_BPM] = bpm.coerceIn(20, 300) }
+
+    suspend fun setDjRecentJson(json: String) = edit { it[Keys.DJ_RECENT_JSON] = json }
 
     suspend fun setThemeAccent(name: String) = edit { it[Keys.THEME_ACCENT] = name }
 

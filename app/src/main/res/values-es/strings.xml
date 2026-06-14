@@ -9,7 +9,28 @@
     <string name="nav_perform">Tocar</string>
     <string name="nav_sound">Sonido</string>
     <string name="nav_compose">Componer</string>
+    <string name="nav_dj">DJ</string>
     <string name="nav_setup">Configurar</string>
+
+    <!-- DJ turntable -->
+    <string name="dj_no_track">Ninguna pista cargada</string>
+    <string name="dj_crossfader">Crossfader</string>
+    <string name="dj_pitch">Tono</string>
+    <string name="dj_volume">Vol.</string>
+    <string name="dj_master">Master</string>
+    <string name="dj_load">Cargar pista</string>
+    <string name="dj_play">Reproducir</string>
+    <string name="dj_pause">Pausa</string>
+    <string name="dj_cue">CUE</string>
+    <string name="dj_library">Biblioteca</string>
+    <string name="dj_pick_file_a">Archivo → A</string>
+    <string name="dj_pick_file_b">Archivo → B</string>
+    <string name="dj_recent">Recientes</string>
+    <string name="dj_device_audio">En este dispositivo</string>
+    <string name="dj_grant_permission">Permitir acceso al audio</string>
+    <string name="dj_empty_library">No se encontraron archivos de audio</string>
+    <string name="dj_load_a">→ A</string>
+    <string name="dj_load_b">→ B</string>
 
     <!-- Synth controls -->
     <string name="waveform">Forma de onda</string>
