@@ -52,10 +52,24 @@ class DjEngine(private val appContext: Context) {
     val deckB = DeckState()
 
     /** Crossfader position: 0 = full A, 1 = full B. Equal-power blend. */
-    var crossfader: Float by mutableFloatStateOf(0.5f)
+    var crossfader: Float
+        get() = _crossfader
+        set(value) {
+            _crossfader = value.coerceIn(0f, 1f)
+            applyVolume(DeckId.A)
+            applyVolume(DeckId.B)
+        }
+    private var _crossfader: Float by mutableFloatStateOf(0.5f)
 
     /** Master output level, 0..1, applied on top of each deck volume. */
-    var master: Float by mutableFloatStateOf(1f)
+    var master: Float
+        get() = _master
+        set(value) {
+            _master = value.coerceIn(0f, 1f)
+            applyVolume(DeckId.A)
+            applyVolume(DeckId.B)
+        }
+    private var _master: Float by mutableFloatStateOf(1f)
 
     private var playerA: MediaPlayer? = null
     private var playerB: MediaPlayer? = null
@@ -150,18 +164,6 @@ class DjEngine(private val appContext: Context) {
     fun setVolume(id: DeckId, v: Float) {
         stateOf(id).volume = v.coerceIn(0f, 1f)
         applyVolume(id)
-    }
-
-    fun setCrossfader(v: Float) {
-        crossfader = v.coerceIn(0f, 1f)
-        applyVolume(DeckId.A)
-        applyVolume(DeckId.B)
-    }
-
-    fun setMaster(v: Float) {
-        master = v.coerceIn(0f, 1f)
-        applyVolume(DeckId.A)
-        applyVolume(DeckId.B)
     }
 
     /** Refresh playhead positions from the players. Called from a UI poll loop. */

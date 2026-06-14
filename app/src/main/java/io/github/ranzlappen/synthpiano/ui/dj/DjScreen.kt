@@ -126,9 +126,9 @@ fun DjScreen(
 
         DjCenterColumn(
             crossfader = engine.crossfader,
-            onCrossfader = { engine.setCrossfader(it) },
+            onCrossfader = { engine.crossfader = it },
             master = engine.master,
-            onMaster = { engine.setMaster(it) },
+            onMaster = { engine.master = it },
             onOpenLibrary = { sheetOpen = true },
             modifier = Modifier.width(200.dp).fillMaxHeight(),
         )
