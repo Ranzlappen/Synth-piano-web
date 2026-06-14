@@ -120,6 +120,15 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    lint {
+        // New check in AGP 9's bundled lint. Our only hits are one-shot
+        // status/toast messages built inside coroutine callbacks (where
+        // stringResource() isn't available and config-change reactivity
+        // is irrelevant), so keep it visible as a warning rather than a
+        // build-failing error.
+        warning += "LocalContextGetResourceValueCall"
+    }
 }
 
 kotlin {
