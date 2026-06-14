@@ -34,6 +34,7 @@ A Kotlin/Compose port of [Ranzlappen/synth-piano](https://github.com/Ranzlappen/
 - **USB MIDI input** — plug a controller via OTG, no permission prompt needed.
 - **Hardware keyboard** — Bluetooth/USB QWERTY plays notes (defaults match the Python ASDFG layout, fully remappable in settings).
 - **Recording** — capture the master output to a WAV file plus a sibling `.mid` of the live performance with microsecond timing. Files land under `Android/data/<package>/files/recordings/` (visible via the system Files app and USB MTP, no permissions). The Recordings list offers in-app Share, **Export to Downloads** (publishes to `Download/Synth Piano/` via MediaStore on Android 10+ so every file manager and music app sees it), and Delete.
+- **DJ turntable** — a two-deck mixer (Deck A / Deck B) for playing audio files: per-deck jog wheel (drag to scratch/seek), ±16% pitch fader with center detent, volume fader, play/pause, cue (tap to jump, long-press to set), and a draggable progress bar. Center crossfader smoothly blends the decks, plus a master volume. Runs on Android's `MediaPlayer` (one per deck) entirely separate from the Oboe synth, so it never touches the audio thread. Load tracks via the file picker (no permission) or browse on-device audio with metadata (needs the `READ_MEDIA_AUDIO` permission on Android 13+, `READ_EXTERNAL_STORAGE` below). Recently loaded tracks are remembered.
 - **Material 3** dynamic theming, landscape-locked, responsive on tablets and foldables.
 
 ## Build & Development
