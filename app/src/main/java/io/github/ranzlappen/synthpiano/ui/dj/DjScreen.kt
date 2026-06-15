@@ -114,8 +114,7 @@ fun DjScreen(
         Deck(
             state = engine.deckA,
             onPlayPause = { engine.playPause(DeckId.A) },
-            onCueJump = { engine.jumpToCue(DeckId.A) },
-            onCueSet = { engine.setCue(DeckId.A) },
+            onCue = { engine.cue(DeckId.A) },
             onScratch = { engine.nudge(DeckId.A, it) },
             onSeek = { engine.seekTo(DeckId.A, it) },
             onPitch = { engine.setPitchPercent(DeckId.A, it) },
@@ -136,8 +135,7 @@ fun DjScreen(
         Deck(
             state = engine.deckB,
             onPlayPause = { engine.playPause(DeckId.B) },
-            onCueJump = { engine.jumpToCue(DeckId.B) },
-            onCueSet = { engine.setCue(DeckId.B) },
+            onCue = { engine.cue(DeckId.B) },
             onScratch = { engine.nudge(DeckId.B, it) },
             onSeek = { engine.seekTo(DeckId.B, it) },
             onPitch = { engine.setPitchPercent(DeckId.B, it) },
