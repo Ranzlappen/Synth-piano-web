@@ -9,8 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
@@ -133,29 +134,35 @@ fun Deck(
                         )
                     }
 
+                    // Transport: CUE + play/pause share the row via weight so
+                    // they always fit the (narrow) deck column without clipping.
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CueButton(onCue = onCue, enabled = state.isPrepared)
+                        CueButton(
+                            onCue = onCue,
+                            enabled = state.isPrepared,
+                            modifier = Modifier.weight(1f).height(56.dp),
+                        )
                         FilledIconButton(
                             onClick = onPlayPause,
                             enabled = state.isPrepared,
+                            shape = CircleShape,
+                            // Always render in bright primary so the control is
+                            // unmistakable — even disabled (no track loaded) it
+                            // stays at 0.6 alpha rather than vanishing into the
+                            // dark deck card.
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = if (state.isPlaying) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                },
-                                // Keep the button clearly visible before a track
-                                // is loaded (default disabled colors vanish into
-                                // the dark deck card).
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
                                 disabledContainerColor =
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                                 disabledContentColor =
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                             ),
-                            modifier = Modifier.size(56.dp),
+                            modifier = Modifier.weight(1f).height(56.dp),
                         ) {
                             Icon(
                                 if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -186,11 +193,10 @@ fun Deck(
  * and pauses. The play/pause + jog wheel make the result visible either way.
  */
 @Composable
-private fun CueButton(onCue: () -> Unit, enabled: Boolean) {
-    val alpha = if (enabled) 1f else 0.4f
+private fun CueButton(onCue: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
+    val alpha = if (enabled) 1f else 0.5f
     Box(
-        modifier = Modifier
-            .size(56.dp)
+        modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.tertiary.copy(alpha = if (enabled) 0.25f else 0.12f))
             .clickable(enabled = enabled, onClick = onCue),
