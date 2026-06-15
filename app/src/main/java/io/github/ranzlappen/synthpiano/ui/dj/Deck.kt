@@ -1,8 +1,7 @@
 package io.github.ranzlappen.synthpiano.ui.dj
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,13 +41,11 @@ import io.github.ranzlappen.synthpiano.ui.components.GlassCard
  * lives in [state] (a [DeckState]) and mutations route through the callbacks,
  * which [DjScreen] wires to [DjEngine].
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Deck(
     state: DeckState,
     onPlayPause: () -> Unit,
-    onCueJump: () -> Unit,
-    onCueSet: () -> Unit,
+    onCue: () -> Unit,
     onScratch: (deltaMs: Int) -> Unit,
     onSeek: (ms: Int) -> Unit,
     onPitch: (Float) -> Unit,
@@ -140,7 +137,7 @@ fun Deck(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CueButton(onJump = onCueJump, onSet = onCueSet)
+                        CueButton(onCue = onCue, enabled = state.isPrepared)
                         FilledIconButton(
                             onClick = onPlayPause,
                             enabled = state.isPrepared,
@@ -150,6 +147,13 @@ fun Deck(
                                 } else {
                                     MaterialTheme.colorScheme.primaryContainer
                                 },
+                                // Keep the button clearly visible before a track
+                                // is loaded (default disabled colors vanish into
+                                // the dark deck card).
+                                disabledContainerColor =
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                disabledContentColor =
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                             ),
                             modifier = Modifier.size(56.dp),
                         ) {
@@ -176,22 +180,26 @@ fun Deck(
     }
 }
 
-/** Cue control: tap to jump to the cue point, long-press to set it. */
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * Cue control (standard CDJ-style, single tap): while paused it sets the cue
+ * point at the current position; while playing it jumps back to the cue point
+ * and pauses. The play/pause + jog wheel make the result visible either way.
+ */
 @Composable
-private fun CueButton(onJump: () -> Unit, onSet: () -> Unit) {
+private fun CueButton(onCue: () -> Unit, enabled: Boolean) {
+    val alpha = if (enabled) 1f else 0.4f
     Box(
         modifier = Modifier
             .size(56.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f))
-            .combinedClickable(onClick = onJump, onLongClick = onSet),
+            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = if (enabled) 0.25f else 0.12f))
+            .clickable(enabled = enabled, onClick = onCue),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             stringResource(R.string.dj_cue),
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.tertiary,
+            color = MaterialTheme.colorScheme.tertiary.copy(alpha = alpha),
             textAlign = TextAlign.Center,
         )
     }

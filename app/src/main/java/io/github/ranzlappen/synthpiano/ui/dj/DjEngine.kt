@@ -133,13 +133,23 @@ class DjEngine(private val appContext: Context) {
         }
     }
 
-    /** Capture the current position as the cue point. */
-    fun setCue(id: DeckId) {
-        stateOf(id).cueMs = stateOf(id).positionMs
+    /**
+     * Standard CDJ-style cue, single button:
+     *  - while paused: set the cue point at the current position;
+     *  - while playing: jump back to the cue point and pause there.
+     */
+    fun cue(id: DeckId) {
+        val mp = playerOf(id) ?: return
+        val state = stateOf(id)
+        if (!state.isPrepared) return
+        if (state.isPlaying) {
+            runCatching { mp.pause() }
+            state.isPlaying = false
+            seekTo(id, state.cueMs)
+        } else {
+            state.cueMs = state.positionMs
+        }
     }
-
-    /** Jump instantly to the stored cue point. */
-    fun jumpToCue(id: DeckId) = seekTo(id, stateOf(id).cueMs)
 
     fun seekTo(id: DeckId, ms: Int) {
         val mp = playerOf(id) ?: return
