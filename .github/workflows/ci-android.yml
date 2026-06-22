@@ -48,7 +48,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Need full tag history to compute the next patch version.
           fetch-depth: 0
@@ -220,7 +220,7 @@ jobs:
 
     steps:
       - name: Checkout (for tagging)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
